@@ -18,6 +18,8 @@ import argparse
 import datetime
 import json
 import os
+import random
+
 from style_doc import _re_args, _re_list, _re_code, _re_doc_ignore, _re_returns, find_indent, is_empty_line, split_line_on_first_colon
 import subprocess
 import tempfile
@@ -191,10 +193,10 @@ def check_code_example_block(code, tmp_dir):
     # run the code example and capture the error if any
     if len(code.strip()) > 0:
 
-        with open(os.path.join(tmp_dir, "tmp.py"), "w", encoding="UTF-8") as fp:
+        with open(os.path.join(tmp_dir, f"{hash(code)}.py"), "w", encoding="UTF-8") as fp:
             fp.write(code)
         s = datetime.datetime.now()
-        result = subprocess.run(f'python {os.path.join(tmp_dir, "tmp.py")}', shell=True, capture_output=True)
+        result = subprocess.run(f'python {os.path.join(tmp_dir, f"{hash(code)}.py")}', shell=True, capture_output=True)
         e = datetime.datetime.now()
         elapsed = (e - s).total_seconds()
         status = "succeeded"
@@ -307,17 +309,21 @@ def check_example_codes_multi_processing(codes):
 
     print(f"{len(data)} total code examples to check ...")
 
+    # keep uniform
+    for i in range(100):
+        random.shuffle(data)
+
     s = time.time()
 
-    batch_size = 20
-    num_batches = len(data) // 20 + int(len(data) % 20 > 0)
+    batch_size = 32
+    num_batches = len(data) // batch_size + int(len(data) % batch_size > 0)
 
     _results = []
     for batch_idx in tqdm(range(num_batches)):
         batch = data[batch_size * batch_idx: batch_size * (batch_idx + 1)]
         with tempfile.TemporaryDirectory() as tmp_dir:
             os.environ['TRANSFORMERS_CACHE'] = tmp_dir
-            with Pool(2) as pool:
+            with Pool(8) as pool:
                 batch_results = pool.starmap(check_code_example_block, [(block, tmp_dir) for _, block, _, _ in batch])
                 _results.extend(batch_results)
 
@@ -416,10 +422,34 @@ def convert_json(json_report, output):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("files", nargs="+", help="The file(s) or folder(s) to check.")
-    parser.add_argument("--extract_only", action='store_true')
-    parser.add_argument("--multi_processing", action='store_true')
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("files", nargs="+", help="The file(s) or folder(s) to check.")
+    # parser.add_argument("--extract_only", action='store_true')
+    # parser.add_argument("--multi_processing", action='store_true')
+    # args = parser.parse_args()
+    #
+    # main(*args.files, extract_only=args.extract_only, multi_processing=args.multi_processing)
 
-    main(*args.files, extract_only=args.extract_only, multi_processing=args.multi_processing)
+    with open("results-multi-processing.json", "r", encoding="UTF-8") as fp:
+        _results = json.load(fp)
+
+    results = {}
+    for file, res in _results.items():
+        res = {code: result for code, result in res.items() if result["status"] != "succeeded"}
+        if len(res) > 0:
+            results[file] = res
+
+    results_pt = {
+        file: res for file, res in results.items() if os.path.split(file)[-1].startswith("modeling_") and
+            not (os.path.split(file)[-1].startswith("modeling_tf_") or os.path.split(file)[-1].startswith("modeling_flax_"))
+    }
+    results_tf = {file: res for file, res in results.items() if os.path.split(file)[-1].startswith("modeling_tf_")}
+    results_flax = {file: res for file, res in results.items() if os.path.split(file)[-1].startswith("modeling_tf_")}
+
+    with open("errors.json", "w", encoding="UTF-8") as fp:
+        json.dump(results, fp, ensure_ascii=False, indent=4)
+
+    convert_json(results, "report-errors.txt")
+    convert_json(results_pt, "report-errors-pt.txt")
+    convert_json(results_tf, "report-errors-tf.txt")
+    convert_json(results_flax, "report-errors-flax.txt")
