@@ -15,93 +15,214 @@
 """Checking utils for the docstrings."""
 
 import argparse
+import datetime
 import json
 import os
-from style_doc import _re_doc_ignore, _re_example, get_indent
+from style_doc import _re_args, _re_list, _re_code, _re_doc_ignore, _re_returns, find_indent, is_empty_line, split_line_on_first_colon
 import subprocess
 import tempfile
 import warnings
 
 
-def _check_docstring_example_blocks(text, file=None):
-    """Extract code example blocks in a docstring and check if they work"""
-    lines = text.split("\n")
+def extract_example_blocks(docstring):
+    """Extract code example blocks in a docstring"""
+    lines = docstring.split("\n")
+    ### new_lines = []
+
+    # Initialization
+    current_paragraph = None
+    current_indent = -1
+    in_code = False
+    param_indent = -1
+    ### prefix = ""
+    ### black_errors = []
+
+    codes = {}  ###
+
+    # Special case for docstrings that begin with continuation of Args with no Args block.
     idx = 0
+    while idx < len(lines) and is_empty_line(lines[idx]):
+        idx += 1
+    if (
+        len(lines[idx]) > 1
+        and lines[idx].rstrip().endswith(":")
+        and find_indent(lines[idx + 1]) > find_indent(lines[idx])
+    ):
+        param_indent = find_indent(lines[idx])
 
-    results = {}
+    for idx, line in enumerate(lines):
+        # Doing all re searches once for the one we need to repeat.
+        list_search = _re_list.search(line)
+        code_search = _re_code.search(line)
 
-    while idx < len(lines):
-        # Detect if the line is the start of a new code-block.
-        if _re_example.search(lines[idx]) is not None:  # or _re_code_block_explicit.search(lines[idx]) is not None:
-            while len(get_indent(lines[idx])) == 0:
-                idx += 1
-            start_idx = idx
-            start_indent = len(get_indent(lines[start_idx]))
-            should_continue = True
-            while should_continue:
-                idx += 1
-                # The condition `len(lines[idx].strip()) == 0` is to keep the lines containing only whitespaces.
-                should_continue = (idx < len(lines)) and (len(lines[idx].strip()) == 0 or len(get_indent(lines[idx])) > start_indent)
-            end_idx = idx
-            code_block_lines = lines[start_idx:end_idx]
+        # Are we starting a new paragraph?
+        # New indentation or new line:
+        new_paragraph = find_indent(line) != current_indent or is_empty_line(line)
+        # List item
+        new_paragraph = new_paragraph or list_search is not None
+        # Code block beginning
+        new_paragraph = new_paragraph or code_search is not None
 
-            # save un-processed code example block for later use
-            orig_code_block = "\n".join(code_block_lines)
+        # In this case, we treat the current paragraph
+        if not in_code and new_paragraph and current_paragraph is not None and len(current_paragraph) > 0:
+            ### paragraph = " ".join(current_paragraph)
+            ### new_lines.append(format_text(paragraph, max_len, prefix=prefix, min_indent=current_indent))
+            current_paragraph = None
 
-            # remove the 1st line (which is the line containing `::`)
-            code_block_lines = code_block_lines[1:]
+        if code_search is not None:
+            if not in_code:
+                current_paragraph = []
+                current_indent = len(code_search.groups()[0])
+                current_code = code_search.groups()[1]
+                ### prefix = ""
+                if current_indent < param_indent:
+                    param_indent = -1
+            else:
+                current_indent = -1
+                code = "\n".join(current_paragraph)
+                if current_code in ["py", "python"]:
+                    codes[(idx - len(current_paragraph), idx)] = code  ###
+                    ### formatted_code, error = format_code_example(code, max_len, in_docstring=True)
+                    ### new_lines.append(formatted_code)
+                    ### if len(error) > 0:
+                        ### black_errors.append(error)
+                else:
+                    pass  ###
+                    ### new_lines.append(code)
+                current_paragraph = None
+            ### new_lines.append(line)
+            in_code = not in_code
 
-            # remove output lines
-            code_block_lines = [x for x in code_block_lines if len(x.strip()) == 0 or x.lstrip().startswith(">>>") or x.lstrip().startswith("...")]
+        elif in_code:
+            current_paragraph.append(line)
+        elif is_empty_line(line):
+            current_paragraph = None
+            current_indent = -1
+            ### prefix = ""
+            ### new_lines.append(line)
+        elif list_search is not None:
+            prefix = list_search.groups()[0]
+            current_indent = len(prefix)
+            current_paragraph = [line[current_indent:]]
+        elif _re_args.search(line):
+            ### new_lines.append(line)
+            param_indent = find_indent(lines[idx + 1])
+        elif current_paragraph is None or find_indent(line) != current_indent:
+            indent = find_indent(line)
+            # Special behavior for parameters intros.
+            if indent == param_indent:
+                # Special rules for some docstring where the Returns blocks has the same indent as the parameters.
+                if _re_returns.search(line) is not None:
+                    param_indent = -1
+                    ### new_lines.append(line)
+                ### elif len(line) < max_len:
+                ###    new_lines.append(line)
+                else:
+                    intro, description = split_line_on_first_colon(line)
+                    ### new_lines.append(intro + ":")
+                    if len(description) != 0:
+                        if find_indent(lines[idx + 1]) > indent:
+                            current_indent = find_indent(lines[idx + 1])
+                        else:
+                            current_indent = indent + 4
+                        current_paragraph = [description.strip()]
+                        ### prefix = ""
+            else:
+                # Check if we have exited the parameter block
+                if indent < param_indent:
+                    param_indent = -1
 
-            # remove the 1st line if it is empty
-            if code_block_lines and not code_block_lines[0].strip():
-                code_block_lines = code_block_lines[1:]
+                current_paragraph = [line.strip()]
+                current_indent = find_indent(line)
+                ### prefix = ""
+        elif current_paragraph is not None:
+            current_paragraph.append(line.lstrip())
 
-            # check ">>>" and "..." formats
-            for x in code_block_lines:
-                if ">>>" in x:
-                    assert x.strip().startswith(">>> ")
-                elif "..." in x:
-                    assert x.strip().startswith("... ") or x.lstrip() == "..."  # some possibly empty lines (in LED)
+    if current_paragraph is not None and len(current_paragraph) > 0:
+        paragraph = " ".join(current_paragraph)
+        ### new_lines.append(format_text(paragraph, max_len, prefix=prefix, min_indent=current_indent))
 
-            # remove ">>>" and "..."
-            code_block_lines = [x.strip().replace(">>> ", "").replace("... ", "") for x in code_block_lines]
-
-            # deal with lines being "..."
-            code_block_lines = [x if x != "..." else "" for x in code_block_lines]
-
-            # put together into a code block
-            code_block = "\n".join(code_block_lines)
-
-            # run the code example and capture the error if any
-            if len(code_block.strip()) > 0:
-                with tempfile.TemporaryDirectory() as tmpdirname:
-                    with open(os.path.join(tmpdirname, "tmp.py"), "w", encoding="UTF-8") as fp:
-                        fp.write(code_block)
-                    import datetime
-                    s = datetime.datetime.now()
-                    result = subprocess.run(f'python {os.path.join(tmpdirname, "tmp.py")}', shell=True, capture_output=True)
-                    e = datetime.datetime.now()
-                    elapsed = (e - s).total_seconds()
-                    print(f"seconds: {elapsed}")
-                    outputs = ""
-                    if result.returncode != 0 and result.stderr:
-                        outputs = result.stderr.decode("utf-8").replace("\r\n", "\n")
-                    results[orig_code_block] = {
-                        "outputs": outputs,
-                        "elapsed": elapsed,
-                    }
-        else:
-            idx += 1
-
-    return results
+    ### return "\n".join(new_lines), "\n\n".join(black_errors)
+    for (start, end), code in codes.items():  ###
+        print(code)  ###
+        print("=" * 80)  ###
+    return codes
 
 
-def check_docstring(docstring, file=None):
+def preprocess_code_example_block(code):
+    """Pre-process a code example block"""
+    code_lines = code.split("\n")
+
+    # remove output lines
+    code_lines = [x for x in code_lines if len(x.strip()) == 0 or x.lstrip().startswith(">>>") or x.lstrip().startswith("...")]
+
+    # remove the 1st line if it is empty
+    if code_lines and not code_lines[0].strip():
+        code_lines = code_lines[1:]
+
+    # check ">>>" and "..." formats
+    for x in code_lines:
+        if ">>>" in x:
+            assert x.strip().startswith(">>> ")
+        elif "..." in x:
+            assert x.strip().startswith("... ") or x.lstrip() == "..."  # some possibly empty lines (in LED)
+
+    # remove ">>>" and "..."
+    code_lines = [x.strip().replace(">>> ", "").replace("... ", "") for x in code_lines]
+
+    # deal with lines being "..."
+    code_lines = [x if x != "..." else "" for x in code_lines]
+
+    # put together into a code block
+    code = "\n".join(code_lines)
+
+    return code
+
+
+def check_code_example_block(code, tmp_dir):
+    """Check a code example block"""
+    code = preprocess_code_example_block(code)
+    result = {"status": "succeeded", "outputs": "", "elapsed": 0.0}
+
+    # run the code example and capture the error if any
+    if len(code.strip()) > 0:
+
+        with open(os.path.join(tmp_dir, "tmp.py"), "w", encoding="UTF-8") as fp:
+            fp.write(code)
+        s = datetime.datetime.now()
+        result = subprocess.run(f'python {os.path.join(tmp_dir, "tmp.py")}', shell=True, capture_output=True)
+        e = datetime.datetime.now()
+        elapsed = (e - s).total_seconds()
+        status = "succeeded"
+        outputs = result.stdout.decode("utf-8").replace("\r\n", "\n")
+        if result.returncode != 0 and result.stderr:
+            status = "failed"
+            outputs = result.stderr.decode("utf-8").replace("\r\n", "\n")
+        result = {
+            "status": status,
+            "outputs": outputs,
+            "elapsed": elapsed,
+        }
+
+    result["time"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    return result
+
+
+def check_docstring(docstring, tmp_dir):
     """Check code examples in `docstring` work"""
     # Make sure code examples in a docstring work
-    return _check_docstring_example_blocks(docstring, file=file)
+    results = {}
+
+    code_example_blocks = extract_example_blocks(docstring)
+
+    for (start, end), code_block in code_example_blocks.items():
+        result = check_code_example_block(code_block, tmp_dir)
+        result["start"] = start
+        result["end"] = end
+        results[code_block] = result
+
+    return results
 
 
 def check_file_docstrings(code_file):
@@ -111,15 +232,16 @@ def check_file_docstrings(code_file):
 
     results = {}
 
-    with tempfile.TemporaryDirectory() as tmpdirname:
+    with tempfile.TemporaryDirectory() as tmp_dir:
 
-        os.environ['TRANSFORMERS_CACHE'] = tmpdirname
+        os.environ['TRANSFORMERS_CACHE'] = tmp_dir
 
         splits = code.split('\"\"\"')
         for i, s in enumerate(splits):
             if i % 2 == 0 or _re_doc_ignore.search(splits[i - 1]) is not None:
                 continue
-            results.update(check_docstring(s, file=code_file))
+            result = check_docstring(s, tmp_dir)
+            results.update(result)
 
     return results
 
@@ -136,10 +258,9 @@ def check_doc_files(*files):
             results.update(check_doc_files(*files))
         elif file.endswith(".py"):
             _results = check_file_docstrings(file)
-            if len(_results) > 0:
-                if file not in results:
-                    results[file] = {}
-                results[file].update(_results)
+            if file not in results:
+                results[file] = {}
+            results[file].update(_results)
         else:
             warnings.warn(f"Ignoring {file} because it's not a py file or a folder.")
 
@@ -150,31 +271,42 @@ def check_doc_files(*files):
     with open("results.json", "w", encoding="UTF-8") as fp:
         json.dump(results, fp, ensure_ascii=False, indent=4)
 
-    convert_json(results)
-
     return results
 
 
 def main(*files):
-    results = check_doc_files(*files)
+
+    _results = check_doc_files(*files)
+    results = {}
+
+    for file, res in _results.items():
+        res = {code: result for code, result in res.items() if result["status"] != "succeeded"}
+        if len(res) > 0:
+            results[file] = res
+
+    convert_json(_results, output="report.txt")
+    convert_json(results, output="error_report.txt")
+
     if len(results) > 0:
         n_examples = sum(len(v) for v in results.values())
         raise ValueError(f"{n_examples} docstring examples in {len(results)} .py files should be fixed!")
 
 
-def convert_json(json_report):
+def convert_json(json_report, output):
 
-    with open("report.txt", "w", encoding="UTF-8") as fp:
+    with open(output, "w", encoding="UTF-8") as fp:
         for file_path in json_report:
             fp.write(file_path + "\n")
+            fn = os.path.split(file_path)[-1]
             fp.write("=" * len(file_path) + "\n")
             for docstring, info in json_report[file_path].items():
-                fp.write("\n")
+                fp.write(f"file: {fn} | start: {info['start']} - end: {info['end']} | Elapsed Time: {info['elapsed']} | Time: {info['time']}")
+                fp.write("\n\n")
                 fp.write(docstring)
-                fp.write("\n")
-                indent = get_indent(docstring)
-                fp.write(indent + "Errors:\n\n")
-                outputs = "\n".join([" " * 4 + indent + x for x in info["outputs"].split("\n")])
+                fp.write("\n\n")
+                indent = find_indent(docstring)
+                fp.write(" " * indent + "Errors:\n\n")
+                outputs = "\n".join([" " * (4 + indent) + x for x in info["outputs"].split("\n")])
                 fp.write(outputs + "\n")
                 fp.write("-" * len(file_path) + "\n")
             fp.write("\n")
