@@ -21,7 +21,11 @@ import os
 from style_doc import _re_args, _re_list, _re_code, _re_doc_ignore, _re_returns, find_indent, is_empty_line, split_line_on_first_colon
 import subprocess
 import tempfile
+import time
 import warnings
+
+from multiprocessing import Pool
+from tqdm import tqdm
 
 
 def extract_example_blocks(docstring):
@@ -292,6 +296,50 @@ def extract_code_example_blocks(*files):
     return results
 
 
+def check_example_codes_multi_processing(codes):
+    """Checks docstrings in all `files` and raises an error if there is any example which can't run.
+    """
+
+    data = []
+    for file, file_info in codes.items():
+        for block, block_info in file_info.items():
+            data.append((file, block, block_info["start"], block_info["end"]))
+
+    print(f"{len(data)} total code examples to check ...")
+
+    s = time.time()
+
+    batch_size = 20
+    num_batches = len(data) // 20 + int(len(data) % 20 > 0)
+
+    _results = []
+    for batch_idx in tqdm(range(num_batches)):
+        batch = data[batch_size * batch_idx: batch_size * (batch_idx + 1)]
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            os.environ['TRANSFORMERS_CACHE'] = tmp_dir
+            with Pool(2) as pool:
+                batch_results = pool.starmap(check_code_example_block, [(block, tmp_dir) for _, block, _, _ in batch])
+                _results.extend(batch_results)
+
+    e = time.time()
+    print(f'Total Timing: {e-s}')
+
+    results = {}
+    for (file, block, start, end), result in zip(data, _results):
+        result["start"] = start
+        result["end"] = end
+        if file not in results:
+            results[file] = {}
+        if block not in results[file]:
+            results[file][block] = {}
+        results[file][block] = result
+
+    with open("results-multi-processing.json", "w", encoding="UTF-8") as fp:
+        json.dump(results, fp, ensure_ascii=False, indent=4)
+
+    return results
+
+
 def check_doc_files(*files):
     """Checks docstrings in all `files` and raises an error if there is any example which can't run.
     """
@@ -320,12 +368,17 @@ def check_doc_files(*files):
     return results
 
 
-def main(*files, extract_only=False):
+def main(*files, extract_only=False, multi_processing=False):
 
     if extract_only:
         return extract_code_example_blocks(*files)
 
-    _results = check_doc_files(*files)
+    if multi_processing:
+        codes = extract_code_example_blocks(*files)
+        _results = check_example_codes_multi_processing(codes)
+    else:
+        _results = check_doc_files(*files)
+
     results = {}
 
     for file, res in _results.items():
@@ -366,6 +419,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("files", nargs="+", help="The file(s) or folder(s) to check.")
     parser.add_argument("--extract_only", action='store_true')
+    parser.add_argument("--multi_processing", action='store_true')
     args = parser.parse_args()
 
-    main(*args.files, extract_only=args.extract_only)
+    main(*args.files, extract_only=args.extract_only, multi_processing=args.multi_processing)
