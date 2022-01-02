@@ -37,7 +37,7 @@ def extract_example_blocks(docstring):
     ### prefix = ""
     ### black_errors = []
 
-    codes = {}  ###
+    codes = []  ###
 
     # Special case for docstrings that begin with continuation of Args with no Args block.
     idx = 0
@@ -81,7 +81,7 @@ def extract_example_blocks(docstring):
                 current_indent = -1
                 code = "\n".join(current_paragraph)
                 if current_code in ["py", "python"]:
-                    codes[(idx - len(current_paragraph), idx)] = code  ###
+                    codes.append((idx - len(current_paragraph), idx, code))  ###
                     ### formatted_code, error = format_code_example(code, max_len, in_docstring=True)
                     ### new_lines.append(formatted_code)
                     ### if len(error) > 0:
@@ -143,7 +143,7 @@ def extract_example_blocks(docstring):
         ### new_lines.append(format_text(paragraph, max_len, prefix=prefix, min_indent=current_indent))
 
     ### return "\n".join(new_lines), "\n\n".join(black_errors)
-    for (start, end), code in codes.items():  ###
+    for (start, end, code) in codes:  ###
         print(code)  ###
         print("=" * 80)  ###
     return codes
@@ -216,7 +216,7 @@ def check_docstring(docstring, tmp_dir):
 
     code_example_blocks = extract_example_blocks(docstring)
 
-    for (start, end), code_block in code_example_blocks.items():
+    for (start, end, code_block) in code_example_blocks:
         result = check_code_example_block(code_block, tmp_dir)
         result["start"] = start
         result["end"] = end
@@ -242,6 +242,52 @@ def check_file_docstrings(code_file):
                 continue
             result = check_docstring(s, tmp_dir)
             results.update(result)
+
+    return results
+
+
+def extract_code_example_blocks_from_docstring(docstring):
+
+    codes = extract_example_blocks(docstring)
+    return codes
+
+
+def extract_code_example_blocks_from_file(code_file):
+
+    with open(code_file, "r", encoding="utf-8", newline="\n") as f:
+        code = f.read()
+
+    codes = []
+    splits = code.split('\"\"\"')
+    for i, s in enumerate(splits):
+        if i % 2 == 0 or _re_doc_ignore.search(splits[i - 1]) is not None:
+            continue
+        _codes = extract_code_example_blocks_from_docstring(s)
+        codes.extend(_codes)
+
+    return codes
+
+
+def extract_code_example_blocks(*files):
+
+    results = {}
+    for file in files:
+        # Treat folders
+        if os.path.isdir(file):
+            files = [os.path.join(file, f) for f in os.listdir(file)]
+            files = [f for f in files if os.path.isdir(f) or f.endswith(".py")]
+            results.update(extract_code_example_blocks(*files))
+        elif file.endswith(".py"):
+            codes = extract_code_example_blocks_from_file(file)
+            if file not in results:
+                results[file] = {}
+            for (start, end, code) in codes:
+                results[file][code] = {"start": start, "end": end}
+        else:
+            warnings.warn(f"Ignoring {file} because it's not a py file or a folder.")
+
+    with open("code_example_blocks.json", "w", encoding="UTF-8") as fp:
+        json.dump(results, fp, ensure_ascii=False, indent=4)
 
     return results
 
@@ -274,7 +320,10 @@ def check_doc_files(*files):
     return results
 
 
-def main(*files):
+def main(*files, extract_only=False):
+
+    if extract_only:
+        return extract_code_example_blocks(*files)
 
     _results = check_doc_files(*files)
     results = {}
@@ -313,8 +362,10 @@ def convert_json(json_report, output):
 
 
 if __name__ == "__main__":
+
     parser = argparse.ArgumentParser()
     parser.add_argument("files", nargs="+", help="The file(s) or folder(s) to check.")
+    parser.add_argument("--extract_only", action='store_true')
     args = parser.parse_args()
 
-    main(*args.files)
+    main(*args.files, extract_only=args.extract_only)
