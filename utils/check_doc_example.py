@@ -320,15 +320,18 @@ def check_example_codes_multi_processing(codes):
 
     _results = []
     for batch_idx in tqdm(range(num_batches)):
+        _s = time.time()
         batch = data[batch_size * batch_idx: batch_size * (batch_idx + 1)]
         with tempfile.TemporaryDirectory() as tmp_dir:
             os.environ['TRANSFORMERS_CACHE'] = tmp_dir
             with Pool(8) as pool:
                 batch_results = pool.starmap(check_code_example_block, [(block, tmp_dir) for _, block, _, _ in batch])
                 _results.extend(batch_results)
+        _e = time.time()
+        print(f"Batch Timing: {_e - _s}")
 
     e = time.time()
-    print(f'Total Timing: {e-s}')
+    print(f'Total Timing: {e - s}')
 
     results = {}
     for (file, block, start, end), result in zip(data, _results):
