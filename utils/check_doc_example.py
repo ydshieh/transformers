@@ -425,34 +425,59 @@ def convert_json(json_report, output):
 
 if __name__ == "__main__":
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("files", nargs="+", help="The file(s) or folder(s) to check.")
-    parser.add_argument("--extract_only", action='store_true')
-    parser.add_argument("--multi_processing", action='store_true')
-    args = parser.parse_args()
+    # parser = argparse.ArgumentParser()
+    # parser.add_argument("files", nargs="+", help="The file(s) or folder(s) to check.")
+    # parser.add_argument("--extract_only", action='store_true')
+    # parser.add_argument("--multi_processing", action='store_true')
+    # args = parser.parse_args()
+    #
+    # main(*args.files, extract_only=args.extract_only, multi_processing=args.multi_processing)
 
-    main(*args.files, extract_only=args.extract_only, multi_processing=args.multi_processing)
 
-    with open("results-multi-processing.json", "r", encoding="UTF-8") as fp:
-        _results = json.load(fp)
 
-    results = {}
-    for file, res in _results.items():
-        res = {code: result for code, result in res.items() if result["status"] != "succeeded"}
-        if len(res) > 0:
-            results[file] = res
+    # with open("results-multi-processing.json", "r", encoding="UTF-8") as fp:
+    #     _results = json.load(fp)
+    #
+    # results = {}
+    # for file, res in _results.items():
+    #     res = {code: result for code, result in res.items() if result["status"] != "succeeded"}
+    #     if len(res) > 0:
+    #         results[file] = res
+    #
+    # results_pt = {
+    #     file: res for file, res in results.items() if os.path.split(file)[-1].startswith("modeling_") and
+    #         not (os.path.split(file)[-1].startswith("modeling_tf_") or os.path.split(file)[-1].startswith("modeling_flax_"))
+    # }
+    # results_tf = {file: res for file, res in results.items() if os.path.split(file)[-1].startswith("modeling_tf_")}
+    # results_flax = {file: res for file, res in results.items() if os.path.split(file)[-1].startswith("modeling_tf_")}
+    #
+    # with open("errors.json", "w", encoding="UTF-8") as fp:
+    #     json.dump(results, fp, ensure_ascii=False, indent=4)
+    #
+    # convert_json(results, "report-errors.txt")
+    # convert_json(results_pt, "report-errors-pt.txt")
+    # convert_json(results_tf, "report-errors-tf.txt")
+    # convert_json(results_flax, "report-errors-flax.txt")
 
-    results_pt = {
-        file: res for file, res in results.items() if os.path.split(file)[-1].startswith("modeling_") and
-            not (os.path.split(file)[-1].startswith("modeling_tf_") or os.path.split(file)[-1].startswith("modeling_flax_"))
-    }
-    results_tf = {file: res for file, res in results.items() if os.path.split(file)[-1].startswith("modeling_tf_")}
-    results_flax = {file: res for file, res in results.items() if os.path.split(file)[-1].startswith("modeling_tf_")}
 
-    with open("errors.json", "w", encoding="UTF-8") as fp:
-        json.dump(results, fp, ensure_ascii=False, indent=4)
 
-    convert_json(results, "report-errors.txt")
-    convert_json(results_pt, "report-errors-pt.txt")
-    convert_json(results_tf, "report-errors-tf.txt")
-    convert_json(results_flax, "report-errors-flax.txt")
+    with open("../errors.json", "r", encoding="UTF-8") as fp:
+        errors = json.load(fp)
+        failed_files = sorted(list(errors.keys()))
+        failed_pt_files = [x for x in failed_files if os.path.split(x)[-1].startswith("modeling_") and not (os.path.split(x)[-1].startswith("modeling_tf_") or os.path.split(x)[-1].startswith("modeling_flax_"))]
+        for x in failed_files:
+            print(x)
+
+    print("=" * 80)
+    import glob
+    root_dir = "../src/transformers/models/"
+    files = [x.replace("../", "") for x in sorted(list(glob.iglob(root_dir + '**/**', recursive=True)))]
+    pt_files = [x for x in files if os.path.split(x)[-1].startswith("modeling_") and not (os.path.split(x)[-1].startswith("modeling_tf_") or os.path.split(x)[-1].startswith("modeling_flax_"))]
+    pt_files = [x for x in pt_files if not ("__pycache__" in x or x.endswith(".pyc"))]
+    for x in pt_files:
+        print(x)
+
+    print("=" * 80)
+    ok_pt_files = sorted(list(set(pt_files).difference(set(failed_pt_files))))
+    for x in ok_pt_files:
+        print(x)
