@@ -420,7 +420,7 @@ class TFModelTesterMixin:
 
         return new_tf_outputs, new_pt_outputs
 
-    def check_pt_tf_outputs(self, tf_outputs, pt_outputs, model_class, tol=1e-5, name="outputs", attributes=None):
+    def check_pt_tf_outputs(self, tf_outputs, pt_outputs, model_class, tol=1e-5, name="outputs", attributes=None, context=None, results=None):
         """Check the outputs from PyTorch and TensorFlow models are closed enough. Checks are done in a recursive way.
 
         Args:
@@ -456,7 +456,7 @@ class TFModelTesterMixin:
             # appending each key to the current (string) `names`
             attributes = tuple([f"{name}.{k}" for k in tf_keys])
             self.check_pt_tf_outputs(
-                tf_outputs.to_tuple(), pt_outputs.to_tuple(), model_class, tol=tol, name=name, attributes=attributes
+                tf_outputs.to_tuple(), pt_outputs.to_tuple(), model_class, tol=tol, name=name, attributes=attributes, context=context, results=results
             )
 
         # Allow `list` (e.g. `TransfoXLModelOutput.mems` is a list of tensors.)
@@ -476,7 +476,7 @@ class TFModelTesterMixin:
                 attributes = tuple([f"{name}_{idx}" for idx in range(len(tf_outputs))])
 
             for tf_output, pt_output, attr in zip(tf_outputs, pt_outputs, attributes):
-                self.check_pt_tf_outputs(tf_output, pt_output, model_class, tol=tol, name=attr)
+                self.check_pt_tf_outputs(tf_output, pt_output, model_class, tol=tol, name=attr, context=context, results=results)
 
         elif isinstance(tf_outputs, tf.Tensor):
             self.assertTrue(
@@ -504,7 +504,13 @@ class TFModelTesterMixin:
             tf_outputs[pt_nans] = 0
 
             max_diff = np.amax(np.abs(tf_outputs - pt_outputs))
-            self.assertLessEqual(max_diff, tol, f"{name}: Difference between torch and tf is {max_diff} (>= {tol}).")
+            ### self.assertLessEqual(max_diff, tol, f"{name}: Difference between torch and tf is {max_diff} (>= {tol}).")
+
+            if context not in results[model_class.__name__]:
+                results[model_class.__name__][context] = {}
+            if name not in results[model_class.__name__][context]:
+                results[model_class.__name__][context][name] = []
+            results[model_class.__name__][context][name].append(float(max_diff))
         else:
             raise ValueError(
                 "`tf_outputs` should be an instance of `tf.Tensor`, a `tuple`, or an instance of `tf.Tensor`. Got"
@@ -531,7 +537,7 @@ class TFModelTesterMixin:
 
         return pt_inputs_dict
 
-    def check_pt_tf_models(self, tf_model, pt_model, tf_inputs_dict):
+    def check_pt_tf_models(self, tf_model, pt_model, tf_inputs_dict, context=None, results=None):
 
         pt_inputs_dict = self.prepare_pt_inputs_from_tf_inputs(tf_inputs_dict)
 
@@ -557,69 +563,92 @@ class TFModelTesterMixin:
         if tf_loss is not None:
             tf_outputs.loss = tf.math.reduce_mean(tf_loss)
 
-        self.check_pt_tf_outputs(tf_outputs, pt_outputs, type(tf_model))
+        self.check_pt_tf_outputs(tf_outputs, pt_outputs, type(tf_model), context=context, results=results)
 
     @is_pt_tf_cross_test
     def test_pt_tf_model_equivalence(self):
         import transformers
 
+        results = {}
+        num_iter = 2
+
         for model_class in self.all_model_classes:
 
-            config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
+            results[model_class.__name__] = {}
 
-            # Output all for aggressive testing
-            config.output_hidden_states = True
-            config.output_attentions = self.has_attentions
+            for _ in range(num_iter):
 
-            # Make sure no sequence has all zeros as attention mask, otherwise some tests fail due to the inconsistency
-            # of the usage `1e-4`, `1e-9`, `1e-30`, `-inf`.
-            # TODO: Use a uniform value for all models, make sure all tests pass without this processing, and remove it.
-            self._make_attention_mask_non_null(inputs_dict)
+                config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
 
-            pt_model_class_name = model_class.__name__[2:]  # Skip the "TF" at the beginning
-            pt_model_class = getattr(transformers, pt_model_class_name)
+                # Output all for aggressive testing
+                config.output_hidden_states = True
+                config.output_attentions = self.has_attentions
 
-            tf_model = model_class(config)
-            pt_model = pt_model_class(config)
+                # Make sure no sequence has all zeros as attention mask, otherwise some tests fail due to the inconsistency
+                # of the usage `1e-4`, `1e-9`, `1e-30`, `-inf`.
+                # TODO: Use a uniform value for all models, make sure all tests pass without this processing, and remove it.
+                self._make_attention_mask_non_null(inputs_dict)
 
-            tf_inputs_dict = self._prepare_for_class(inputs_dict, model_class)
-            tf_inputs_dict_with_labels = self._prepare_for_class(
-                inputs_dict,
-                model_class,
-                # Not all models accept "labels" in the forward pass (yet :) )
-                return_labels=True if "labels" in inspect.signature(model_class.call).parameters.keys() else False,
-            )
+                pt_model_class_name = model_class.__name__[2:]  # Skip the "TF" at the beginning
+                pt_model_class = getattr(transformers, pt_model_class_name)
 
-            # For some models (e.g. base models), there is no label returned.
-            # Set the input dict to `None` to avoid check outputs twice for the same input dicts.
-            if set(tf_inputs_dict_with_labels.keys()).symmetric_difference(tf_inputs_dict.keys()):
-                tf_inputs_dict_with_labels = None
+                tf_model = model_class(config)
+                pt_model = pt_model_class(config)
 
-            # Check we can load pt model in tf and vice-versa with model => model functions
-            tf_model = transformers.load_pytorch_model_in_tf2_model(tf_model, pt_model, tf_inputs=tf_inputs_dict)
-            pt_model = transformers.load_tf2_model_in_pytorch_model(pt_model, tf_model)
+                tf_inputs_dict = self._prepare_for_class(inputs_dict, model_class)
+                tf_inputs_dict_with_labels = self._prepare_for_class(
+                    inputs_dict,
+                    model_class,
+                    # Not all models accept "labels" in the forward pass (yet :) )
+                    return_labels=True if "labels" in inspect.signature(model_class.call).parameters.keys() else False,
+                )
 
-            # Original test: check without `labels`
-            self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict)
-            # check with `labels`
-            if tf_inputs_dict_with_labels:
-                self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict_with_labels)
+                # For some models (e.g. base models), there is no label returned.
+                # Set the input dict to `None` to avoid check outputs twice for the same input dicts.
+                if set(tf_inputs_dict_with_labels.keys()).symmetric_difference(tf_inputs_dict.keys()):
+                    tf_inputs_dict_with_labels = None
 
-            # Check we can load pt model in tf and vice-versa with checkpoint => model functions
-            with tempfile.TemporaryDirectory() as tmpdirname:
-                pt_checkpoint_path = os.path.join(tmpdirname, "pt_model.bin")
-                torch.save(pt_model.state_dict(), pt_checkpoint_path)
-                tf_model = transformers.load_pytorch_checkpoint_in_tf2_model(tf_model, pt_checkpoint_path)
+                # Check we can load pt model in tf and vice-versa with model => model functions
+                tf_model = transformers.load_pytorch_model_in_tf2_model(tf_model, pt_model, tf_inputs=tf_inputs_dict)
+                pt_model = transformers.load_tf2_model_in_pytorch_model(pt_model, tf_model)
 
-                tf_checkpoint_path = os.path.join(tmpdirname, "tf_model.h5")
-                tf_model.save_weights(tf_checkpoint_path)
-                pt_model = transformers.load_tf2_checkpoint_in_pytorch_model(pt_model, tf_checkpoint_path)
+                # Original test: check without `labels`
+                self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict, context="without_labels_mem", results=results)
+                # check with `labels`
+                if tf_inputs_dict_with_labels:
+                    self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict_with_labels, context="with_labels_mem", results=results)
 
-            # Original test: check without `labels`
-            self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict)
-            # check with `labels`
-            if tf_inputs_dict_with_labels:
-                self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict_with_labels)
+                # Check we can load pt model in tf and vice-versa with checkpoint => model functions
+                with tempfile.TemporaryDirectory() as tmpdirname:
+                    pt_checkpoint_path = os.path.join(tmpdirname, "pt_model.bin")
+                    torch.save(pt_model.state_dict(), pt_checkpoint_path)
+                    tf_model = transformers.load_pytorch_checkpoint_in_tf2_model(tf_model, pt_checkpoint_path)
+
+                    tf_checkpoint_path = os.path.join(tmpdirname, "tf_model.h5")
+                    tf_model.save_weights(tf_checkpoint_path)
+                    pt_model = transformers.load_tf2_checkpoint_in_pytorch_model(pt_model, tf_checkpoint_path)
+
+                # Original test: check without `labels`
+                self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict, context="without_labels_disk", results=results)
+                # check with `labels`
+                if tf_inputs_dict_with_labels:
+                    self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict_with_labels, context="with_labels_disk", results=results)
+
+                from copy import deepcopy
+                _results = deepcopy(results)
+                if len(self.all_model_classes) > 0:
+                    for model_class_name in _results:
+                        for context in _results[model_class_name]:
+                            for names in _results[model_class_name][context]:
+                                if not names.endswith("_max_diff"):
+                                    results[model_class_name][context][names + "_max_diff"] = float(
+                                        np.amax(np.array(_results[model_class_name][context][names])))
+
+                    import json
+                    with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}.json", "w", encoding="UTF-8") as fp:
+                        json.dump(results, fp, ensure_ascii=False, indent=4)
+                    with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_backup.json", "w", encoding="UTF-8") as fp:
+                        json.dump(results, fp, ensure_ascii=False, indent=4)
 
     def test_compile_tf_model(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
