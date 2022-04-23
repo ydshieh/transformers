@@ -725,7 +725,17 @@ if __name__ == "__main__":
                     if ckpt2:
                         _ckpt = ckpt2.group(1)
                         config = AutoConfig.from_pretrained(_ckpt)
-                        assert isinstance(config, config_class), f"instance wrong type: expect {config_class} but get {type(config)}"
+
+                        ok = isinstance(config, config_class)
+                        if not ok:
+                            if config.is_encoder_decoder:
+                                for component in ["encoder", "decoder"]:
+                                    component_config = getattr(config, component)
+                                    ok = isinstance(component_config, config_class)
+                                    if ok:
+                                        break
+                        assert ok, f"instance wrong type: expect {config_class} but get {type(config)}"
+
                         if config_class not in configs:
                             configs[config_class] = []
                         configs[config_class].append(_ckpt)
