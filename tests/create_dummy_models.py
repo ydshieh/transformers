@@ -132,29 +132,27 @@ def get_checkpoint_from_configuration_class(config_class):
     model_module_name = config_module_name.replace("configuration_", "modeling_")
     # module where the corresponding model of `config_class` is defined
     # (e.g. `transformers.models.bart.modeling_bert` for `BertConfig`)
-    model_module = importlib.import_module(model_module_name)
+    try:
+        model_module = importlib.import_module(model_module_name)
+    except (ModuleNotFoundError, AttributeError):
+        pass
 
     # regex used to find the checkpoint mentioned in the docstring of `config_class`.
     # For example, `[bert-base-uncased](https://huggingface.co/bert-base-uncased)`
     checkpoint_regex = re.compile("\[.+?\]\(https://huggingface\.co/.+?\)")
     checkpoints = checkpoint_regex.findall(config_source)
 
-    return checkpoints
+    _checkpoints = []
+    # post processing
+    for ckpt in checkpoints:
 
-    # # First try to retrieve the _CHECKPOINT_FOR_DOC from the modeling file
-    # try:
-    #     module = importlib.import_module(to_import)
-    #     checkpoint = module._CHECKPOINT_FOR_DOC
-    # except (ModuleNotFoundError, AttributeError):
-    #     # If no _CHECKPOINT_FOR_DOC or no modeling file, retrieve the first checkpoint defined in the tokenization file
-    #     to_import = f"transformers.models.{module}.tokenization_{module}"
-    #     try:
-    #         module = importlib.import_module(to_import)
-    #         checkpoint = list(list(module.PRETRAINED_VOCAB_FILES_MAP.values())[0].keys())[0]
-    #     except (AttributeError, ModuleNotFoundError):
-    #         pass
-    #
-    # return checkpoint
+        regex = re.compile(r"(?:\[)(.+?)(?:\])")
+        ckpt2 = regex.search(ckpt).group(1)
+        ckpt_link = f"https://huggingface.co/{ckpt2}"
+        if ckpt_link in ckpt:
+            _checkpoints.append(ckpt)
+
+    return _checkpoints
 
 
 def get_tiny_config_from_class(configuration_class):
@@ -619,14 +617,14 @@ def get_processor_mapping_from_configuration_list(configuration_list):
 
     processor_mapping = {}
     # Check first if a model has `ProcessorMixin`. If not, check `PreTrainedTokenizer` & `FeatureExtractionMixin`.
-    for config in configuration_list:
+    for config_class in configuration_list:
 
-        if config in PROCESSOR_MAPPING:
-            processors = PROCESSOR_MAPPING[config]
-        elif config in TOKENIZER_MAPPING:
-            processors = TOKENIZER_MAPPING[config]
-        elif config in FEATURE_EXTRACTOR_MAPPING:
-            processors = FEATURE_EXTRACTOR_MAPPING[config]
+        if config_class in PROCESSOR_MAPPING:
+            processors = PROCESSOR_MAPPING[config_class]
+        elif config_class in TOKENIZER_MAPPING:
+            processors = TOKENIZER_MAPPING[config_class]
+        elif config_class in FEATURE_EXTRACTOR_MAPPING:
+            processors = FEATURE_EXTRACTOR_MAPPING[config_class]
         else:
             # Some configurations have no processor at all. For example, generic composite models like
             # `EncoderDecoderModel` is used for any (compatible) text models. Also, `DecisionTransformer` doesn't
@@ -638,7 +636,7 @@ def get_processor_mapping_from_configuration_list(configuration_list):
         if not isinstance(processors, collections.abc.Sequence):
             processors = (processors,)
 
-        processor_mapping[config] = processors
+        processor_mapping[config_class] = processors
 
     return processor_mapping
 
@@ -672,41 +670,41 @@ if __name__ == "__main__":
     if not args.all and not args.model_types:
         raise ValueError("Please provide at least one model type or pass `--all` to export all architectures.")
 
-    configurations = CONFIG_MAPPING.values()
+    config_classes = CONFIG_MAPPING.values()
     if not args.all:
-        configurations = [CONFIG_MAPPING[model_type] for model_type in args.model_types]
+        config_classes = [CONFIG_MAPPING[model_type] for model_type in args.model_types]
 
     # Mappings from configs to processors/architectures
-    processors = get_processor_mapping_from_configuration_list(configurations)
+    processor_map = get_processor_mapping_from_configuration_list(config_classes)
 
     # Skip models that have no processor at all
-    configurations_with_processor = [c for c in configurations if len(processors[c]) > 0]
+    config_classes_with_processor = [c for c in config_classes if len(processor_map[c]) > 0]
 
     # Ignore some model types
     # TODO: Ask L
     if args.black_list:
-        final_configurations = [c for c in configurations_with_processor if c.model_type not in args.black_list]
+        final_config_classes = [c for c in config_classes_with_processor if c.model_type not in args.black_list]
 
     # TODO: Why it's fewer ..?
-    pytorch_architectures = get_architectures_from_configuration_list(pytorch_mappings, final_configurations)
-    tensorflow_architectures = get_architectures_from_configuration_list(tensorflow_mappings, final_configurations)
+    pytorch_architectures = get_architectures_from_configuration_list(pytorch_mappings, final_config_classes)
+    tensorflow_architectures = get_architectures_from_configuration_list(tensorflow_mappings, final_config_classes)
 
     models_to_create = {
-        config: {
-            "processors": processors[config],
-            "pytorch": pytorch_architectures[config],
-            "tensorflow": tensorflow_architectures[config],
+        config_class: {
+            "processors": processor_map[config_class],
+            "pytorch": pytorch_architectures[config_class],
+            "tensorflow": tensorflow_architectures[config_class],
         }
-        for config in final_configurations
+        for config_class in final_config_classes
     }
 
     report = {"no_feature_extractor": [], "no_tokenizer": [], "identical_tokenizer": [], "vocab_sizes": {}}
 
     ckpts = {}
-    for config, architectures in tqdm(models_to_create.items()):
+    for config_class, architectures in tqdm(models_to_create.items()):
 
-        checkpoint = get_checkpoint_from_configuration_class(config)
-        ckpts[config] = checkpoint
+        checkpoint = get_checkpoint_from_configuration_class(config_class)
+        ckpts[config_class] = checkpoint
 
     ckpts = {k: ckpts[k] for k in sorted(ckpts.keys(), key=lambda x: str(x))}
     ckpts2 = {k: v for k, v in ckpts.items() if not v}
