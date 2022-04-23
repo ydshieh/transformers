@@ -107,26 +107,53 @@ unexportable_model_architectures = [
 ]
 
 
-def get_checkpoint_from_configuration_class(config):
+def get_checkpoint_from_configuration_class(config_class):
+    """
+    """
     checkpoint = None
-    model_type = config.model_type
-    module = model_type_to_module_name(model_type)
-    to_import = f"transformers.models.{module}.modeling_{module}"
 
-    # First try to retrieve the _CHECKPOINT_FOR_DOC from the modeling file
-    try:
-        module = importlib.import_module(to_import)
-        checkpoint = module._CHECKPOINT_FOR_DOC
-    except (ModuleNotFoundError, AttributeError):
-        # If no _CHECKPOINT_FOR_DOC or no modeling file, retrieve the first checkpoint defined in the tokenization file
-        to_import = f"transformers.models.{module}.tokenization_{module}"
-        try:
-            module = importlib.import_module(to_import)
-            checkpoint = list(list(module.PRETRAINED_VOCAB_FILES_MAP.values())[0].keys())[0]
-        except (AttributeError, ModuleNotFoundError):
-            pass
+    import importlib
+    import inspect
+    import re
 
-    return checkpoint
+    # source code file where `config_class` is defined
+    config_source_file = inspect.getsourcefile(config_class)
+
+    # source code of `config_class`
+    config_source = inspect.getsource(config_class)
+
+    # module where `config_class` is defined.
+    # (e.g. `transformers.models.bart.configuration_bert` for `BertConfig`)
+    config_module = inspect.getmodule(config_class)
+    config_module_name = config_module.__name__
+
+    # get the model module
+    model_module_name = config_module_name.replace("configuration_", "modeling_")
+    # module where the corresponding model of `config_class` is defined
+    # (e.g. `transformers.models.bart.modeling_bert` for `BertConfig`)
+    model_module = importlib.import_module(model_module_name)
+
+    # regex used to find the checkpoint mentioned in the docstring of `config_class`.
+    # For example, `[bert-base-uncased](https://huggingface.co/bert-base-uncased)`
+    checkpoint_regex = re.compile("\[.+?\]\(https://huggingface\.co/.+?\)")
+    checkpoints = checkpoint_regex.findall(config_source)
+
+    return checkpoints
+
+    # # First try to retrieve the _CHECKPOINT_FOR_DOC from the modeling file
+    # try:
+    #     module = importlib.import_module(to_import)
+    #     checkpoint = module._CHECKPOINT_FOR_DOC
+    # except (ModuleNotFoundError, AttributeError):
+    #     # If no _CHECKPOINT_FOR_DOC or no modeling file, retrieve the first checkpoint defined in the tokenization file
+    #     to_import = f"transformers.models.{module}.tokenization_{module}"
+    #     try:
+    #         module = importlib.import_module(to_import)
+    #         checkpoint = list(list(module.PRETRAINED_VOCAB_FILES_MAP.values())[0].keys())[0]
+    #     except (AttributeError, ModuleNotFoundError):
+    #         pass
+    #
+    # return checkpoint
 
 
 def get_tiny_config_from_class(configuration_class):
@@ -674,9 +701,15 @@ if __name__ == "__main__":
 
     report = {"no_feature_extractor": [], "no_tokenizer": [], "identical_tokenizer": [], "vocab_sizes": {}}
 
+    ckpts = {}
     for config, architectures in tqdm(models_to_create.items()):
 
-        processor_report = build_processor_files({config: architectures["processors"]}, args.output_path)
+        checkpoint = get_checkpoint_from_configuration_class(config)
+        ckpts[config] = checkpoint
+
+    print(ckpts)
+
+        ### processor_report = build_processor_files({config: architectures["processors"]}, args.output_path)
 
         # tokenizer_length = processor_report.pop("vocab_size", None)
         # report["vocab_sizes"][config.model_type] = tokenizer_length
