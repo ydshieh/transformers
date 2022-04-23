@@ -1,3 +1,4 @@
+import json
 import os
 
 
@@ -707,7 +708,38 @@ if __name__ == "__main__":
         checkpoint = get_checkpoint_from_configuration_class(config)
         ckpts[config] = checkpoint
 
-    print(ckpts)
+    ckpts = {k: ckpts[k] for k in sorted(ckpts.keys(), key=lambda x: str(x))}
+    ckpts2 = {k: v for k, v in ckpts.items() if not v}
+    print(ckpts2)
+
+    configs = {}
+    failed_configs = {}
+    for config_class, _ckpts in ckpts.items():
+        if _ckpts:
+            for ckpt in _ckpts:
+                from transformers import AutoConfig
+                try:
+                    import re
+                    regex = re.compile(r"(?:\[)(.+?)(?:\])")
+                    ckpt2 = regex.search(ckpt)
+                    if ckpt2:
+                        _ckpt = ckpt2.group(1)
+                        config = AutoConfig.from_pretrained(_ckpt)
+                        assert isinstance(config, config_class)
+                        if config_class not in configs:
+                            configs[config_class] = []
+                        configs[config_class].append(_ckpt)
+                except Exception as e:
+                    if config_class not in failed_configs:
+                        failed_configs[str(config_class)] = []
+                    failed_configs[str(config_class)].append([_ckpt, str(e)])
+                    print(config_class)
+                    print(ckpt)
+                    print(_ckpt)
+
+    print(configs)
+    with open("failed-ckpts.json", "w", encoding="UTF-8") as fp:
+        json.dump(failed_configs, fp, ensure_ascii=False, indent=4)
 
         ### processor_report = build_processor_files({config: architectures["processors"]}, args.output_path)
 
