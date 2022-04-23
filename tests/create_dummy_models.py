@@ -725,7 +725,7 @@ if __name__ == "__main__":
                     if ckpt2:
                         _ckpt = ckpt2.group(1)
                         config = AutoConfig.from_pretrained(_ckpt)
-                        assert isinstance(config, config_class)
+                        assert isinstance(config, config_class), f"instance wrong type: expect {config_class} but get {type(config)}"
                         if config_class not in configs:
                             configs[config_class] = []
                         configs[config_class].append(_ckpt)
@@ -738,7 +738,7 @@ if __name__ == "__main__":
                     print(_ckpt)
 
     print(configs)
-    with open("failed-ckpts.json", "w", encoding="UTF-8") as fp:
+    with open("failed-ckpts-2.json", "w", encoding="UTF-8") as fp:
         json.dump(failed_configs, fp, ensure_ascii=False, indent=4)
 
         ### processor_report = build_processor_files({config: architectures["processors"]}, args.output_path)
