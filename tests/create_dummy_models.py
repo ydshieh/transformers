@@ -508,7 +508,8 @@ def build(config_class, to_create, output_folder):
 
         # Make PT/TF weights compatible
         pt_arch_name = tensorflow_arch.__name__[2:]  # Remove `TF`
-        if pt_arch_name in result["pytorch"]:
+        pt_arch = getattr(transformers_module, pt_arch_name)
+        if pt_arch in result["pytorch"]:
             ckpt = os.path.join(output_folder, pt_arch_name)
             model = tensorflow_arch.from_pretrained(ckpt, from_pt=True)
             model.save_pretrained(ckpt)
@@ -521,7 +522,8 @@ def build(config_class, to_create, output_folder):
 
         # Make PT/Flax weights compatible
         pt_arch_name = flax_arch.__name__[4:]  # Remove `Flax`
-        if pt_arch_name in result["pytorch"]:
+        pt_arch = getattr(transformers_module, pt_arch_name)
+        if pt_arch in result["pytorch"]:
             ckpt = os.path.join(output_folder, pt_arch_name)
             model = flax_arch.from_pretrained(ckpt, from_pt=True)
             model.save_pretrained(ckpt)
