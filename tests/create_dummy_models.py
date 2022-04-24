@@ -501,20 +501,14 @@ def build(config_class, to_create, output_folder):
     result["processor"] = {type(p): p for p in processors}
 
     for pytorch_arch in to_create["pytorch"]:
-        if "RemBert" in pytorch_arch.__name__:
-            import pdb; pdb.set_trace()
         model = build_model(config_class, pytorch_arch, output_folder=output_folder, processors=processors)
         result["pytorch"][pytorch_arch] = model
 
     for tensorflow_arch in to_create["tensorflow"]:
-
-        if "RemBert" in tensorflow_arch.__name__:
-            import pdb; pdb.set_trace()
-
         # Make PT/TF weights compatible
         pt_arch_name = tensorflow_arch.__name__[2:]  # Remove `TF`
         pt_arch = getattr(transformers_module, pt_arch_name)
-        if result["pytorch"].get(pt_arch, None) is not None:
+        if isinstance(result["pytorch"].get(pt_arch, None), torch.nn.Module):
             ckpt = os.path.join(output_folder, pt_arch_name)
             model = tensorflow_arch.from_pretrained(ckpt, from_pt=True)
             model.save_pretrained(ckpt)
@@ -528,7 +522,7 @@ def build(config_class, to_create, output_folder):
         # Make PT/Flax weights compatible
         pt_arch_name = flax_arch.__name__[4:]  # Remove `Flax`
         pt_arch = getattr(transformers_module, pt_arch_name)
-        if result["pytorch"].get(pt_arch, None) is not None:
+        if isinstance(result["pytorch"].get(pt_arch, None), torch.nn.Module):
             ckpt = os.path.join(output_folder, pt_arch_name)
             model = flax_arch.from_pretrained(ckpt, from_pt=True)
             model.save_pretrained(ckpt)
