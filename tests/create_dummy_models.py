@@ -13,6 +13,9 @@ from transformers.feature_extraction_utils import FeatureExtractionMixin
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.processing_utils import ProcessorMixin, transformers_module
 
+
+
+
 if not is_torch_available():
     raise ValueError("Please install PyTorch.")
 
@@ -107,8 +110,92 @@ unexportable_model_architectures = [
     "TFFunnelForMultipleChoice",
 ]
 
+# Define the PyTorch and TensorFlow mappings
+pytorch_arch_mappings = [
+    MODEL_MAPPING,
+    MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
+    MODEL_FOR_MASKED_LM_MAPPING,
+    MODEL_FOR_PRETRAINING_MAPPING,
+    MODEL_FOR_CAUSAL_LM_MAPPING,
+    MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,
+    MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
+    MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
+    MODEL_FOR_OBJECT_DETECTION_MAPPING,
+    MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
+    MODEL_WITH_LM_HEAD_MAPPING,
+    MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING,
+    MODEL_FOR_QUESTION_ANSWERING_MAPPING,
+    MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
+]
 
-def get_checkpoint_from_configuration_class(config_class):
+tensorflow_arch_mappings = [
+    TF_MODEL_MAPPING,
+    TF_MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
+    TF_MODEL_FOR_MASKED_LM_MAPPING,
+    TF_MODEL_FOR_PRETRAINING_MAPPING,
+    TF_MODEL_FOR_CAUSAL_LM_MAPPING,
+    TF_MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
+    TF_MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
+    TF_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
+    TF_MODEL_WITH_LM_HEAD_MAPPING,
+    TF_MODEL_FOR_QUESTION_ANSWERING_MAPPING,
+    TF_MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
+]
+
+
+def get_processor_types_from_config_class(config_class):
+
+    processor_types = ()
+
+    # Check first if a model has `ProcessorMixin`. If not, check `PreTrainedTokenizer` & `FeatureExtractionMixin`.
+    if config_class in PROCESSOR_MAPPING:
+        processor_types = PROCESSOR_MAPPING[config_class]
+    elif config_class in TOKENIZER_MAPPING:
+        processor_types = TOKENIZER_MAPPING[config_class]
+    elif config_class in FEATURE_EXTRACTOR_MAPPING:
+        processor_types = FEATURE_EXTRACTOR_MAPPING[config_class]
+    else:
+        # Some configurations have no processor at all. For example, generic composite models like
+        # `EncoderDecoderModel` is used for any (compatible) text models. Also, `DecisionTransformer` doesn't
+        # require any processor.
+        # In these cases, we still add the configurations as keys but with `None` as value.
+        pass
+
+    # make a uniform format
+    if not isinstance(processor_types, collections.abc.Sequence):
+        processor_types = (processor_types,)
+
+    return processor_types
+
+
+def get_architectures_from_config_class(config_class, arch_mappings):
+    """
+    Map a configuration class to a tuple of all possible architectures attributed to that configuration.
+
+    For example, BertConfig -> [BertModel, BertForMaskedLM, ..., BertForQuestionAnswering]
+    """
+
+    # A model architecture could appear in several mappings. For example, `BartForConditionalGeneration` is in
+    # TODO: ...
+    # We avoid the duplication.
+    architectures = set()
+
+    for mapping in arch_mappings:
+        if config_class in mapping:
+            models = mapping[config_class]
+            # TODO: Necessary?
+            models = tuple(models) if isinstance(models, collections.abc.Sequence) else (models,)
+            for model in models:
+                # TODO: check the condition here
+                if True or model.__name__ not in unexportable_model_architectures:
+                    architectures.add(model)
+
+    architectures = tuple(architectures)
+
+    return architectures
+
+
+def get_checkpoint_from_config_class(config_class):
     """
     """
     checkpoint = None
@@ -142,7 +229,6 @@ def get_checkpoint_from_configuration_class(config_class):
     checkpoint_regex = re.compile("\[.+?\]\(https://huggingface\.co/.+?\)")
     checkpoints = checkpoint_regex.findall(config_source)
 
-    _checkpoints = []
     # post processing
     for ckpt in checkpoints:
 
@@ -150,12 +236,14 @@ def get_checkpoint_from_configuration_class(config_class):
         ckpt2 = regex.search(ckpt).group(1)
         ckpt_link = f"https://huggingface.co/{ckpt2}"
         if ckpt_link in ckpt:
-            _checkpoints.append(ckpt)
+            checkpoint = ckpt2
+            break
 
-    return _checkpoints
+    return checkpoint
 
 
-def get_tiny_config_from_class(configuration_class):
+# TODO: improve
+def get_tiny_config(config_class):
     """
     Retrieve a tiny configuration from the configuration class. It uses each class' `ModelTester`.
     Args:
@@ -165,12 +253,13 @@ def get_tiny_config_from_class(configuration_class):
         an instance of the configuration passed, with very small hyper-parameters
 
     """
-    model_type = configuration_class.model_type
-    camel_case_model_name = configuration_class.__name__.split("Config")[0]
+    model_type = config_class.model_type
+    camel_case_model_name = config_class.__name__.split("Config")[0]
 
     try:
         print("Importing", model_type_to_module_name(model_type))
-        module = importlib.import_module(f".test_modeling_{model_type_to_module_name(model_type)}", package="tests")
+        module_name = model_type_to_module_name(model_type)
+        module = importlib.import_module(f".{module_name}.test_modeling_{module_name}", package="tests")
         model_tester_class = getattr(module, f"{camel_case_model_name}ModelTester", None)
     except ModuleNotFoundError:
         print(f"Will not build {model_type}: no model tester or cannot find the testing module from the model name.")
@@ -187,458 +276,53 @@ def get_tiny_config_from_class(configuration_class):
         return model_tester.get_config()
 
 
-def build_pytorch_weights_from_multiple_architectures(pytorch_architectures, weights_path, config_overrides=None):
-    # Create the PyTorch tiny models
-    for config, architectures in pytorch_architectures.items():
-        base_tiny_config = get_tiny_config_from_class(config)
+def build_processor(config_class, processor_class, output_folder):
+    """Create and save a processor for `processor_class`
+    """
+    checkpoint = get_checkpoint_from_config_class(config_class)
 
-        if base_tiny_config is None:
-            continue
+    try:
+        # TODO: Use Auto API
+        processor = processor_class.from_pretrained(checkpoint)
+    except Exception as e:
+        return e
 
-        if config_overrides is not None:
-            for k, v in config_overrides.items():
-                setattr(base_tiny_config, k, v)
+    return processor
 
-        base_tiny_config.num_labels = 2
 
-        if config.model_type in per_model_type_configuration_attributes:
-            for key, value in per_model_type_configuration_attributes[config.model_type].items():
-                setattr(base_tiny_config, key, value)
+def build_model(config_class, model_arch, output_folder):
+    """Create and save a model for `model_arch`
+    """
+    checkpoint = get_checkpoint_from_config_class(config_class)
 
-        print(base_tiny_config)
-        os.makedirs(f"{weights_path}/{config.model_type}", exist_ok=True)
-        base_tiny_config.save_pretrained(f"{weights_path}/{config.model_type}")
+    try:
+        tiny_config = get_tiny_config(config_class)
+        model = model_arch(config=tiny_config)
+    except Exception as e:
+        return e
 
-        state_dict = {}
-        flat_architectures = []
+    return model
 
-        per_model_configuration_attributes = {
-            "ReformerModelWithLMHead": {"is_decoder": True},
-            "ReformerModelForMaskedLM": {"is_decoder": False},
-        }
 
-        for architecture_tuple in architectures:
-            if not isinstance(architecture_tuple, tuple):
-                architecture_tuple = (architecture_tuple,)
+def build(config_class, to_create):
 
-            for architecture in architecture_tuple:
-                tiny_config = copy.deepcopy(base_tiny_config)
-                if architecture.__name__ in per_model_configuration_attributes:
-                    for key, value in per_model_configuration_attributes[architecture.__name__].items():
-                        setattr(tiny_config, key, value)
-                flat_architectures.append(architecture)
+    result = {k: {} for k in to_create}
 
-                if "DPRQuestionEncoder" in architecture.__name__:
-                    continue
+    processor_classes = to_create["processor"]
 
-                print(architecture)
-                try:
-                    model = architecture.from_pretrained(
-                        None, config=tiny_config, state_dict=state_dict, no_check_corrupted=True
-                    )
-                    state_dict = {
-                        **state_dict,
-                        **model.state_dict()
-                    }
+    for processor_class in processor_classes:
+        processor = build_processor(config_class, processor_class, output_folder=None)
+        result["processor"][processor_class] = processor
 
-                    # for key in state_dict.keys():
-                    #     if key.startswith(f"{config.model_type}."):珞
-                    #         del state_dict[key]
-                except:
-                    INVALID_ARCH.append(architecture.__name__)
+    for pytorch_arch in to_create["pytorch"]:
+        model = build_model(config_class, pytorch_arch, output_folder=None)
+        result["pytorch"][pytorch_arch] = model
 
-        keys = list(state_dict.keys())
+    for tensorflow_arch in to_create["tensorflow"]:
+        model = build_model(config_class, tensorflow_arch, output_folder=None)
+        result["tensorflow"][tensorflow_arch] = model
 
-        for key in keys:
-            print(key, key.startswith(f"{config.model_type}."))
-            if not key.startswith(f"{config.model_type}.") and f"{config.model_type}.{key}" in keys:
-                print("Removing", key, f"{config.model_type}.{key}", "present:", f"{config.model_type}.{key}" in keys)
-                del state_dict[key]
-
-        torch.save(
-            OrderedDict(state_dict),
-            f"{weights_path}/{config.model_type}/pytorch_model.bin",
-        )
-
-
-def build_tensorflow_weights_from_multiple_architectures(
-    tensorflow_architectures, weights_path, config_overrides=None
-):
-    # Create the TensorFlow tiny models
-    for config, architectures in tensorflow_architectures.items():
-        if len(architectures) == 0:
-            continue
-
-        base_tiny_config = get_tiny_config_from_class(config)
-
-        if base_tiny_config is None:
-            continue
-
-        if config_overrides is not None:
-            for k, v in config_overrides.items():
-                setattr(base_tiny_config, k, v)
-
-        base_tiny_config.num_labels = 2
-
-        if config.model_type in per_model_type_configuration_attributes:
-            for key, value in per_model_type_configuration_attributes[config.model_type].items():
-                setattr(base_tiny_config, key, value)
-
-        os.makedirs(f"{weights_path}/{config.model_type}", exist_ok=True)
-        print(base_tiny_config)
-        base_tiny_config.save_pretrained(f"{weights_path}/{config.model_type}")
-
-        flat_architectures = []
-
-        per_model_configuration_attributes = {
-            "ReformerModelWithLMHead": {"is_decoder": True},
-            "ReformerModelForMaskedLM": {"is_decoder": False},
-        }
-
-        with tempfile.TemporaryDirectory() as temp_dir:
-            for architecture_tuple in architectures:
-                if not isinstance(architecture_tuple, tuple):
-                    architecture_tuple = (architecture_tuple,)
-
-                for architecture in architecture_tuple:
-                    tiny_config = copy.deepcopy(base_tiny_config)
-                    if architecture.__name__ in per_model_configuration_attributes:
-                        for key, value in per_model_configuration_attributes[architecture.__name__]:
-                            setattr(tiny_config, key, value)
-
-                    if "DPRQuestionEncoder" in architecture.__name__:
-                        continue
-
-                    flat_architectures.append(architecture)
-
-                    try:
-                        model = architecture.from_pretrained(
-                            f"{weights_path}/{config.model_type}",
-                            config=tiny_config,
-                            from_pt=True,
-                        )
-                    except ValueError as e:
-                        INVALID_ARCH.append(architecture.__name__)
-                    model.save_pretrained(f"{temp_dir}/{config.model_type}/{architecture.__name__}")
-
-            h5_files = [
-                h5py.File(
-                    f"{temp_dir}/{config.model_type}/{architecture.__name__}/tf_model.h5",
-                    "r",
-                )
-                for architecture in flat_architectures
-            ]
-            new_h5_file = h5py.File(f"{weights_path}/{config.model_type}/tf_model.h5", "w")
-
-            # function to return a list of paths to each dataset
-            def get_datasets(key, archive):
-                if key[-1] != "/":
-                    key += "/"
-                out = [key]
-
-                for name in archive[key]:
-                    path = key + name
-
-                    if isinstance(archive[path], h5py.Dataset):
-                        out += [path]
-                    else:
-                        out += get_datasets(path, archive)
-
-                return out
-
-            # open HDF5-files
-            for data in h5_files:
-                # read as much datasets as possible from the old HDF5-file
-                datasets = get_datasets("/", data)
-
-                # get the group-names from the lists of datasets
-                groups = list(set([i[::-1].split("/", 1)[1][::-1] for i in datasets]))
-                groups = [i for i in groups if len(i) > 0]
-
-                # sort groups based on depth
-                idx = np.argsort(np.array([len(i.split("/")) for i in groups]))
-                groups = [groups[i] for i in idx]
-
-                # create all groups that contain dataset that will be copied
-                for group in groups:
-                    try:
-                        new_h5_file.create_group(group)
-                    except ValueError:
-                        pass
-
-                # copy datasets
-                for path in datasets:
-                    group = path[::-1].split("/", 1)[1][::-1]
-
-                    if len(group) == 0:
-                        group = "/"
-
-                    # Copy the data from one archive to the other
-                    try:
-                        data.copy(path, new_h5_file[group])
-                    except (ValueError, RuntimeError):
-                        pass
-
-                    # Manually set attributes, such as `keras_version`, `weight_names`
-                    for key, value in data[path].attrs.items():
-                        if key in new_h5_file[group].attrs:
-                            existing_value = new_h5_file[group].attrs[key]
-
-                            # The value already exists. If it is a list, then we append to it the current value.
-                            # We convert the list to a set and back to remove duplicates
-                            if isinstance(existing_value, np.ndarray):
-                                updated_value = list(set(existing_value.tolist() + value.tolist()))
-                                new_h5_file[group].attrs.create(key, updated_value)
-                            else:
-                                new_h5_file[group].attrs.modify(key, value)
-                        else:
-                            new_h5_file[group].attrs.create(key, value)
-
-            new_h5_file.close()
-
-
-def build_processor_files(processor_mapping, output_folder):
-
-    def create_tokenizer(tokenizer_class, checkpoint=None):
-
-        if checkpoint is None:
-            # TODO: tokenizer with default parameters
-            tokenizer = tokenizer_class()
-        else:
-            # TODO: Use `AutoTokenizer`
-            tokenizer = tokenizer_class.from_pretrained(checkpoint)
-
-        return (tokenizer,)
-
-    def create_feature_extractor(feature_extractor_class, checkpoint=None):
-
-        if checkpoint is None:
-            # feature_extractor with default parameters
-            feature_extractor = feature_extractor_class()
-        else:
-            # TODO: Use `AutoFeatureExtractor`
-            feature_extractor = feature_extractor_class.from_pretrained(checkpoint)
-
-        return (feature_extractor,)
-
-    def create_processor(processor_class, checkpoint=None):
-
-        processors = []
-
-        if checkpoint is None:
-            # processor from components with default parameters
-
-            attributes = {}
-
-            attr_names = processor_class.attributes
-
-            for attr_name in attr_names:
-                components = []
-                # This could be a tuple or a single string. For example, `ViltProcessor.tokenizer_class`
-                component_class_names = getattr(processor_class, f"{attr_name}_class")
-                # Make a uniform format: tuple
-                if not isinstance(component_class_names, tuple):
-                    component_class_names = (component_class_names,)
-
-                for component_class_name in component_class_names:
-                    component_class = getattr(transformers_module, component_class_name)
-                    component = create_processor(component_class, checkpoint=checkpoint)
-                    components.extend(component)
-
-                components = tuple(components)
-                attributes[attr_name] = components
-
-            from itertools import product
-            attr_value_combinations = product(*[attributes[k] for k in attr_names])
-            for attr_values in attr_value_combinations:
-                kwargs = {k: v for k, v in zip(attr_names, attr_values)}
-                processor = processor_class(**kwargs)
-                processors.append(processor)
-        else:
-            # TODO: Use `AutoFeatureExtractor`
-            processor = processor_class.from_pretrained(checkpoint)
-            processors.append(processor)
-
-        return processors
-
-    def _create_processors(processor_class, checkpoint=None):
-
-        if issubclass(processor_class, ProcessorMixin):
-            processors = create_processor(processor_class, checkpoint=checkpoint)
-        elif issubclass(processor_class, PreTrainedTokenizerBase):
-            processors = create_tokenizer(processor_class, checkpoint=checkpoint)
-        elif issubclass(processor_class, FeatureExtractionMixin):
-            processors = create_feature_extractor(processor_class, checkpoint=checkpoint)
-
-        return processors
-
-    processors = {}
-    for config, processor_classes in processor_mapping.items():
-        processors[config] = []
-        for processor_class in processor_classes:
-            processors = _create_processors(processor_class)
-            processors[config] = processors
-
-    return processors
-    #
-    # report = {"no_feature_extractor": [], "no_tokenizer": [], "identical_tokenizer": [], "vocab_size": {}}
-    # for config, tokenizers in tokenizer_mapping.items():
-    #     model_type = config.model_type
-    #     checkpoint = get_checkpoint_from_configuration_class(config)
-    #
-    #     # Try to build a processor
-    #     try:
-    #         feature_extractor = AutoFeatureExtractor.from_pretrained(checkpoint)
-    #         feature_extractor.save_pretrained(os.path.join(output_folder, model_type))
-    #     except (OSError, KeyError):
-    #         report["no_feature_extractor"].append(model_type)
-    #     except RecursionError:
-    #         report["no_feature_extractor"].append(model_type)
-    #         print(f"Recursion error on {model_type}")
-    #         raise
-    #     except TypeError:
-    #         print(f"TypeError on {model_type}, with {tokenizers}")
-    #         raise
-    #
-    #     try:
-    #         tokenizer_fast = AutoTokenizer.from_pretrained(checkpoint)
-    #
-    #         try:
-    #             new_tokenizer = tokenizer_fast.train_new_from_iterator(training_ds["text"], 1000)
-    #             tokenizer_fast(testing_ds["text"])
-    #             # print(f"Saving! Converted from {len(tokenizer_fast)} vocab size to {len(new_tokenizer)}.")
-    #             print("SAVING", len(new_tokenizer))
-    #             new_tokenizer.save_pretrained(os.path.join(output_folder, model_type))
-    #             new_tokenizer.save_pretrained(os.path.join(output_folder, model_type), legacy_format=True)
-    #
-    #             report["vocab_size"] = len(new_tokenizer)
-    #         except Exception as e:
-    #             tokenizer_fast.save_pretrained(os.path.join(output_folder, model_type))
-    #             tokenizer_fast.save_pretrained(os.path.join(output_folder, model_type), legacy_format=True)
-    #             report["identical_tokenizer"].append(model_type)
-    #             report["vocab_size"] = len(tokenizer_fast)
-    #
-    #     except (OSError, KeyError):
-    #         report["no_tokenizer"].append(model_type)
-    #
-    # return report
-
-
-def check_architecture_validity(pytorch_architectures, tensorflow_architectures, weights_path, vocab_sizes):
-    for config, architectures in tqdm(pytorch_architectures.items(), desc="Checking PyTorch weights validity"):
-        for architecture_tuple in architectures:
-            if not isinstance(architecture_tuple, tuple):
-                architecture_tuple = (architecture_tuple,)
-
-            for architecture in architecture_tuple:
-                model, loading_info = architecture.from_pretrained(
-                    f"{weights_path}/{config.model_type}", output_loading_info=True, no_check_corrupted=True
-                )
-                if loading_info["missing_keys"] == 0:
-                    raise ValueError(
-                        f"Missing weights when loading PyTorch checkpoints: {loading_info['missing_keys']}"
-                    )
-
-    print("Checked PyTorch weights")
-
-    for config, architectures in tqdm(tensorflow_architectures.items(), desc="Checking TensorFlow weights validity"):
-        for architecture_tuple in architectures:
-            if not isinstance(architecture_tuple, tuple):
-                architecture_tuple = (architecture_tuple,)
-
-            for architecture in architecture_tuple:
-                model, loading_info = architecture.from_pretrained(
-                    f"{weights_path}/{config.model_type}",
-                    output_loading_info=True,
-                )
-
-                if len(loading_info["missing_keys"]) != 0:
-                    required_weights_missing = []
-                    for missing_key in loading_info["missing_keys"]:
-                        if "dropout" not in missing_key:
-                            required_weights_missing.append(missing_key)
-
-                    if len(required_weights_missing) > 0:
-                        raise ValueError(f"Found missing weights in {architecture}: {required_weights_missing}")
-
-    print("Checked TensorFlow weights")
-
-
-# Define the PyTorch and TensorFlow mappings
-pytorch_mappings = [
-    MODEL_MAPPING,
-    MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
-    MODEL_FOR_MASKED_LM_MAPPING,
-    MODEL_FOR_PRETRAINING_MAPPING,
-    MODEL_FOR_CAUSAL_LM_MAPPING,
-    MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,
-    MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
-    MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
-    MODEL_FOR_OBJECT_DETECTION_MAPPING,
-    MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
-    MODEL_WITH_LM_HEAD_MAPPING,
-    MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING,
-    MODEL_FOR_QUESTION_ANSWERING_MAPPING,
-    MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-]
-tensorflow_mappings = [
-    TF_MODEL_MAPPING,
-    TF_MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
-    TF_MODEL_FOR_MASKED_LM_MAPPING,
-    TF_MODEL_FOR_PRETRAINING_MAPPING,
-    TF_MODEL_FOR_CAUSAL_LM_MAPPING,
-    TF_MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
-    TF_MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
-    TF_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
-    TF_MODEL_WITH_LM_HEAD_MAPPING,
-    TF_MODEL_FOR_QUESTION_ANSWERING_MAPPING,
-    TF_MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-]
-
-# CONFIG_MAPPING = {k: v for i, (k, v) in enumerate(CONFIG_MAPPING.items()) if i < 15}
-
-# Reorder the mappings, so that a single configuration maps to an array of all possible architectures attributed
-# to that configuration.
-# Ex: {BertConfig: [BertModel, BertForMaskedLM, ..., BertForQuestionAnswering]}
-def get_architectures_from_configuration_list(mappings, configuration_list):
-    returned_mapping = {}
-    for config in configuration_list:
-        returned_mapping[config] = []
-        for mapping in mappings:
-            if config in mapping:
-                models = mapping[config] if isinstance(mapping[config], tuple) else (mapping[config],)
-                for model in models:
-                    if model.__name__ not in unexportable_model_architectures:
-                        returned_mapping[config].append(model)
-    return returned_mapping
-
-
-def get_processor_mapping_from_configuration_list(configuration_list):
-
-    processor_mapping = {}
-    # Check first if a model has `ProcessorMixin`. If not, check `PreTrainedTokenizer` & `FeatureExtractionMixin`.
-    for config_class in configuration_list:
-
-        if config_class in PROCESSOR_MAPPING:
-            processors = PROCESSOR_MAPPING[config_class]
-        elif config_class in TOKENIZER_MAPPING:
-            processors = TOKENIZER_MAPPING[config_class]
-        elif config_class in FEATURE_EXTRACTOR_MAPPING:
-            processors = FEATURE_EXTRACTOR_MAPPING[config_class]
-        else:
-            # Some configurations have no processor at all. For example, generic composite models like
-            # `EncoderDecoderModel` is used for any (compatible) text models. Also, `DecisionTransformer` doesn't
-            # require any processor.
-            # In these cases, we still add the configurations as keys but with `None` as value.
-            processors = ()
-
-        # make a uniform format
-        if not isinstance(processors, collections.abc.Sequence):
-            processors = (processors,)
-
-        processor_mapping[config_class] = processors
-
-    return processor_mapping
+    return result
 
 
 if __name__ == "__main__":
@@ -675,125 +359,42 @@ if __name__ == "__main__":
         config_classes = [CONFIG_MAPPING[model_type] for model_type in args.model_types]
 
     # Mappings from configs to processors/architectures
-    processor_map = get_processor_mapping_from_configuration_list(config_classes)
+    processor_type_map = {c: get_processor_types_from_config_class(c) for c in config_classes}
 
     # Skip models that have no processor at all
-    config_classes_with_processor = [c for c in config_classes if len(processor_map[c]) > 0]
+    config_classes_with_processor = [c for c in config_classes if len(processor_type_map[c]) > 0]
 
     # Ignore some model types
     # TODO: Ask L
     if args.black_list:
         final_config_classes = [c for c in config_classes_with_processor if c.model_type not in args.black_list]
 
-    # TODO: Why it's fewer ..?
-    pytorch_architectures = get_architectures_from_configuration_list(pytorch_mappings, final_config_classes)
-    tensorflow_architectures = get_architectures_from_configuration_list(tensorflow_mappings, final_config_classes)
-
-    models_to_create = {
-        config_class: {
-            "processors": processor_map[config_class],
-            "pytorch": pytorch_architectures[config_class],
-            "tensorflow": tensorflow_architectures[config_class],
+    to_create = {
+        c: {
+            "processor": processor_type_map[c],
+            "pytorch": get_architectures_from_config_class(c, pytorch_arch_mappings),
+            "tensorflow": get_architectures_from_config_class(c, tensorflow_arch_mappings)
         }
-        for config_class in final_config_classes
+        for c in final_config_classes
     }
 
     report = {"no_feature_extractor": [], "no_tokenizer": [], "identical_tokenizer": [], "vocab_sizes": {}}
 
-    ckpts = {}
-    for config_class, architectures in tqdm(models_to_create.items()):
+    results = {}
+    for c, _to_create in list(to_create.items())[:3]:
+        print(c)
+        result = build(c, _to_create)
+        results[c] = result
+        print("====================")
 
-        checkpoint = get_checkpoint_from_configuration_class(config_class)
-        ckpts[config_class] = checkpoint
+    _results = {}
+    for k in results:
+        _results[str(k)] = {}
+        for k1 in results[k]:
+             if isinstance(results[k][k1], Exception):
+                 _results[str(k)][str(k1)] = results[k][k1]
 
-    ckpts = {k: ckpts[k] for k in sorted(ckpts.keys(), key=lambda x: str(x))}
-    ckpts2 = {k: v for k, v in ckpts.items() if not v}
-    print(ckpts2)
+    with open("build_failed", "w") as fp:
+        json.dump(_results, fp, ensure_ascii=True, indent=4)
 
-    configs = {}
-    failed_configs = {}
-    for config_class, _ckpts in ckpts.items():
-        if _ckpts:
-            for ckpt in _ckpts:
-                from transformers import AutoConfig
-                try:
-                    import re
-                    regex = re.compile(r"(?:\[)(.+?)(?:\])")
-                    ckpt2 = regex.search(ckpt)
-                    if ckpt2:
-                        _ckpt = ckpt2.group(1)
-                        config = AutoConfig.from_pretrained(_ckpt)
 
-                        ok = isinstance(config, config_class)
-                        if not ok:
-                            if config.is_encoder_decoder:
-                                for component in ["encoder", "decoder"]:
-                                    component_config = getattr(config, component)
-                                    ok = isinstance(component_config, config_class)
-                                    if ok:
-                                        break
-                        assert ok, f"instance wrong type: expect {config_class} but get {type(config)}"
-
-                        if config_class not in configs:
-                            configs[config_class] = []
-                        configs[config_class].append(_ckpt)
-                except Exception as e:
-                    if config_class not in failed_configs:
-                        failed_configs[str(config_class)] = []
-                    failed_configs[str(config_class)].append([_ckpt, str(e)])
-                    print(config_class)
-                    print(ckpt)
-                    print(_ckpt)
-
-    print(configs)
-    with open("failed-ckpts-2.json", "w", encoding="UTF-8") as fp:
-        json.dump(failed_configs, fp, ensure_ascii=False, indent=4)
-
-        ### processor_report = build_processor_files({config: architectures["processors"]}, args.output_path)
-
-        # tokenizer_length = processor_report.pop("vocab_size", None)
-        # report["vocab_sizes"][config.model_type] = tokenizer_length
-        # [report[k].extend(v) for k, v in processor_report.items()]
-        #
-        #
-        #
-        # # Pytorch
-        # build_pytorch_weights_from_multiple_architectures(
-        #     {config: architectures["pytorch"]}, args.output_path, config_overrides={"vocab_size": tokenizer_length}
-        # )
-        #
-        # # TensorFlow
-        # build_tensorflow_weights_from_multiple_architectures(
-        #     {config: architectures["tensorflow"]}, args.output_path, config_overrides={"vocab_size": tokenizer_length}
-        # )
-
-    exit(0)
-
-    print("--- Report ---")
-    print("INVALID", INVALID_ARCH)
-
-    if len(processors_config_without_mapping):
-        print(
-            f"Some models could not be exported due to a lack of processor: {[c.model_type for c in processors_config_without_mapping]}"
-        )
-
-    if len(report["no_feature_extractor"]):
-        print(
-            "The following models have no feature extractor or it couldn't be built:", report["no_feature_extractor"]
-        )
-
-    if len(report["no_tokenizer"]):
-        print("The following models have no tokenizer or it couldn't be built:", report["no_tokenizer"])
-
-    if len(report["identical_tokenizer"]):
-        print(
-            "The following models leverage the checkpoint's tokenizer as a smaller copy couldn't be made:",
-            report["identical_tokenizer"],
-        )
-
-    print("Vocabulary sizes:", report["vocab_sizes"])
-
-    if not args.no_check:
-        check_architecture_validity(
-            pytorch_architectures, tensorflow_architectures, args.output_path, report["vocab_sizes"]
-        )
