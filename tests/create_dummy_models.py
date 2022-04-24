@@ -380,7 +380,7 @@ def build_processor(config_class, processor_class):
 
                 for name in attr_class_names:
                     attr_class = getattr(transformers_module, name)
-                    attr = build_processor(config_class, attr_class, output_folder)
+                    attr = build_processor(config_class, attr_class)
                     if attr is not None:
                         attrs[attr_name].append(attr)
 
@@ -394,7 +394,7 @@ def build_processor(config_class, processor_class):
             # Change `config_class` and call recursively.
             new_config_class = get_config_class_from_processor_class(processor_class)
             if new_config_class != config_class:
-                processor = build_processor(new_config_class, processor_class, output_folder)
+                processor = build_processor(new_config_class, processor_class)
 
     return processor
 
