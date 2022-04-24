@@ -63,6 +63,16 @@ from transformers import (
     TF_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
     TF_MODEL_MAPPING,
     TF_MODEL_WITH_LM_HEAD_MAPPING,
+    FLAX_MODEL_FOR_CAUSAL_LM_MAPPING,
+    FLAX_MODEL_FOR_MASKED_LM_MAPPING,
+    FLAX_MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
+    FLAX_MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
+    FLAX_MODEL_FOR_PRETRAINING_MAPPING,
+    FLAX_MODEL_FOR_QUESTION_ANSWERING_MAPPING,
+    FLAX_MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
+    FLAX_MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
+    FLAX_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
+    FLAX_MODEL_MAPPING,
     TOKENIZER_MAPPING,
     AutoFeatureExtractor,
     AutoTokenizer,
@@ -144,6 +154,19 @@ tensorflow_arch_mappings = [
     TF_MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
 ]
 
+flax_arch_mappings = [
+    FLAX_MODEL_FOR_CAUSAL_LM_MAPPING,
+    FLAX_MODEL_FOR_MASKED_LM_MAPPING,
+    FLAX_MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
+    FLAX_MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
+    FLAX_MODEL_FOR_PRETRAINING_MAPPING,
+    FLAX_MODEL_FOR_QUESTION_ANSWERING_MAPPING,
+    FLAX_MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
+    FLAX_MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
+    FLAX_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
+    FLAX_MODEL_MAPPING,
+]
+
 
 def get_processor_types_from_config_class(config_class):
 
@@ -180,7 +203,6 @@ def get_architectures_from_config_class(config_class, arch_mappings):
 
     For example, BertConfig -> [BertModel, BertForMaskedLM, ..., BertForQuestionAnswering]
     """
-
     # A model architecture could appear in several mappings. For example, `BartForConditionalGeneration` is in
     #   - MODEL_FOR_PRETRAINING_MAPPING_NAMES
     #   - MODEL_WITH_LM_HEAD_MAPPING_NAMES
@@ -289,76 +311,197 @@ def get_tiny_config(config_class):
         return model_tester.get_config()
 
 
-def build_processor(config_class, processor_class, output_folder):
-    """Create and save a processor for `processor_class`d
+def get_config_class_from_processor_class(processor_class):
+    """
+    Some configurations use other tokenizers/feature_extractors. For example, `GPT-J` use `GPT2Tokenizer`.
+    If no checkpoint is found for a configuration, or a checkpoint is found without necessary file(s) to load the
+    processor, it should be fine to use a checkpoint found for the config that corresponds to `processor_class`.
+    """
+
+    processor_prefix = processor_class.__name__
+    for postfix in ["Processor", "TokenizerFast", "Tokenizer", "FeatureExtractor"]:
+        processor_prefix = processor_prefix.replace(postfix, "")
+
+    # TODO: bad Wav2Vec2CTCTokenizer without Wav2Vec2CTCConfig
+    if processor_prefix == "Wav2Vec2CTC":
+        processor_prefix = "Wav2Vec2"
+
+    # Find the new configuration class
+    new_config_name = f"{processor_prefix}Config"
+    new_config_class = getattr(transformers_module, new_config_name)
+
+    return new_config_class
+
+
+def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
+
+    new_tokenizer = tokenizer_fast.train_new_from_iterator(training_ds["text"], 1024)
+    new_tokenizer(testing_ds["text"])
+
+    return new_tokenizer
+
+
+def build_processor(config_class, processor_class):
+    """Create and save a processor for `processor_class`.
+
+    We don't save the processor here: the (same set of) processor will be saved in `build_model` for each `model_arch`,
+    after some performed in `convert_processors`.
     """
     checkpoint = get_checkpoint_from_config_class(config_class)
 
+    # TODO: checkpoint could be `None`. For example, `VisionTextDualEncoderConfig` has no checkpoint mentioned.
+    # Try to get the checkpoint from `processor_class`
     if checkpoint is None:
-        return None
+        new_config_class = get_config_class_from_processor_class(processor_class)
+        checkpoint = get_checkpoint_from_config_class(new_config_class)
 
+    processor = None
     try:
         # TODO: Use Auto API
         processor = processor_class.from_pretrained(checkpoint)
     except Exception as e:
-        # TODO: `YosoConfig` has a checkpoint `uw-madison/yoso-4096` without a sentencepiece file to load `AlbertTokenizer`.
-        if issubclass(processor_class, PreTrainedTokenizer):
-            if "not a string" in str(e):
-                return None
-        return e
+        # TODO
+        pass
+
+    if processor is None:
+
+        # Try to build each component (tokenizer & feature extractor) of a `ProcessorMixin`.
+        if issubclass(processor_class, ProcessorMixin):
+            attrs = {}
+            for attr_name in processor_class.attributes:
+                attrs[attr_name] = []
+
+                # This could be a tuple (for tokenizers). For example, `CLIPProcessor` has
+                #   - feature_extractor_class = "CLIPFeatureExtractor"
+                #   - tokenizer_class = ("CLIPTokenizer", "CLIPTokenizerFast")
+                attr_class_names = getattr(processor_class, f"{attr_name}_class")
+                if not isinstance(attr_class_names, tuple):
+                    attr_class_names = (attr_class_names,)
+
+                for name in attr_class_names:
+                    attr_class = getattr(transformers_module, name)
+                    attr = build_processor(config_class, attr_class, output_folder)
+                    if attr is not None:
+                        attrs[attr_name].append(attr)
+
+            # try to build a `ProcessorMixin`, so we can return the value
+            if all(len(v) > 0 for v in attrs.values()):
+                processor = processor_class(**{k: v[0] for k, v in attrs})
+
+        else:
+            # `checkpoint` might miss some files to load the processor. For example, `facebook/hubert-base-ls960`
+            # has no tokenizer files to load `Wav2Vec2CTCTokenizer`.
+            # Change `config_class` and call recursively.
+            new_config_class = get_config_class_from_processor_class(processor_class)
+            if new_config_class != config_class:
+                processor = build_processor(new_config_class, processor_class, output_folder)
 
     return processor
 
 
-def build_model(config_class, model_arch, output_folder):
-    """Create and save a model for `model_arch`
+def convert_processors(processors):
+    """Reduce the tokenizer's `vocab_size`, and update the slow tokenizer too (if any).
+
+    Also remove the entries with `None` value.
     """
-    checkpoint = get_checkpoint_from_config_class(config_class)
+
+    tokenizers = []
+    feature_extractors = []
+    for processor in processors:
+        if isinstance(processor, PreTrainedTokenizerBase):
+            tokenizers.append(processor)
+        elif isinstance(processor, FeatureExtractionMixin):
+            feature_extractors.append(processor)
+        elif isinstance(processor, ProcessorMixin):
+            tokenizers.append(processor.tokenizer)
+            tokenizers.append(processor.feature_extractor)
+
+    fast_tokenizer = None
+    slow_tokenizer = None
+    for tokenizer in tokenizers:
+        if isinstance(tokenizer, PreTrainedTokenizerFast):
+            fast_tokenizer = tokenizer
+            fast_tokenizer = convert_tokenizer(fast_tokenizer)
+        else:
+            slow_tokenizer = tokenizer
+
+    if fast_tokenizer:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            fast_tokenizer.save_pretrained(temp_dir, legacy_format=True)
+            slow_tokenizer = AutoTokenizer.from_pretrained(temp_dir, fast_tokenizer=False)
+
+    processors = [fast_tokenizer, slow_tokenizer] + feature_extractors
+    processors = [p for p in processors if p is not None]
+
+    return processors
+
+
+def build_model(config_class, model_arch, output_folder, processors=None):
+    """Create and save a model for `model_arch`.
+    """
+
+    output_folder = os.path.join(output_folder, model_arch.__name__)
+
+    vocab_size = None
+    # Save the (same set of) processors for each `model_arch` with the same `model_type`.
+    for p in processors:
+        p.save_pretrained(output_folder)
+        if isinstance(p, PreTrainedTokenizerBase):
+            vocab_size = p.vocab_size
+
+    config_overrides = {"vocab_size": vocab_size}
 
     try:
         tiny_config = get_tiny_config(config_class)
+        # TODO: `tiny_config` could be `None`. --> check and fix
+        # For example, `VisionTextDualEncoderMixin` (despite it has `prepare_config_and_inputs` without impl.)
+        if tiny_config is None:
+            return None
+
+        if config_overrides is not None:
+            for k, v in config_overrides.items():
+                setattr(tiny_config, k, v)
+
         model = model_arch(config=tiny_config)
+        model.save_pretrained(output_folder)
+
     except Exception as e:
-        f = type(e)
-        g = isinstance(e, Exception)
         return e
 
     return model
 
 
-def build(config_class, to_create):
+def build(config_class, to_create, output_folder):
 
     result = {k: {} for k in to_create}
 
     processor_classes = to_create["processor"]
-
     for processor_class in processor_classes:
-        processor = build_processor(config_class, processor_class, output_folder=None)
+        processor = build_processor(config_class, processor_class)
         result["processor"][processor_class] = processor
 
+    # Try to reduce (fast) tokenizer's vocab size, and if successful, update the corresponding slow tokenizer (if any).
+    processors = list(result["processor"].values())
+    processors = convert_processors(processors)
+    # update `result`
+    result["processor"] = {type(p): p for p in processors}
+
     for pytorch_arch in to_create["pytorch"]:
-        model = build_model(config_class, pytorch_arch, output_folder=None)
+        model = build_model(config_class, pytorch_arch, output_folder=output_folder, processors=processors)
         result["pytorch"][pytorch_arch] = model
 
     for tensorflow_arch in to_create["tensorflow"]:
-        model = build_model(config_class, tensorflow_arch, output_folder=None)
+        model = build_model(config_class, tensorflow_arch, output_folder=output_folder, processors=processors)
         result["tensorflow"][tensorflow_arch] = model
+
+    for flax_arch in to_create["flax"]:
+        model = build_model(config_class, flax_arch, output_folder=output_folder, processors=processors)
+        result["flax"][flax_arch] = model
 
     return result
 
 
 if __name__ == "__main__":
-
-    # from transformers import PerceiverTokenizer
-    # s = PerceiverTokenizer.from_pretrained("deepmind/language-perceiver")
-    # t = AutoTokenizer.from_pretrained("deepmind/language-perceiver")
-
-    from transformers import AlbertTokenizer, AlbertTokenizerFast
-    t = AutoTokenizer.from_pretrained("uw-madison/yoso-4096")
-    t = AlbertTokenizerFast.from_pretrained("uw-madison/yoso-4096")
-    t = AlbertTokenizer.from_pretrained("uw-madison/yoso-4096")
-
-    exit(0)
 
     def list_str(values):
         return values.split(",")
@@ -406,7 +549,8 @@ if __name__ == "__main__":
         c: {
             "processor": processor_type_map[c],
             "pytorch": get_architectures_from_config_class(c, pytorch_arch_mappings),
-            "tensorflow": get_architectures_from_config_class(c, tensorflow_arch_mappings)
+            "tensorflow": get_architectures_from_config_class(c, tensorflow_arch_mappings),
+            "flax": get_architectures_from_config_class(c, flax_arch_mappings),
         }
         for c in final_config_classes
     }
@@ -420,7 +564,7 @@ if __name__ == "__main__":
     results = {}
     for c, _to_create in list(to_create.items())[:]:
         print(c)
-        result = build(c, _to_create)
+        result = build(c, _to_create, output_folder=os.path.join(args.output_path, c.model_type))
         results[c] = result
         print("====================")
 
