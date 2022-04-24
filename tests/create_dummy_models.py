@@ -67,6 +67,8 @@ from transformers import (
     AutoFeatureExtractor,
     AutoTokenizer,
     logging,
+    PreTrainedTokenizer,
+    PreTrainedTokenizerFast,
 )
 from transformers.models.auto.configuration_auto import AutoConfig, model_type_to_module_name
 
@@ -165,6 +167,10 @@ def get_processor_types_from_config_class(config_class):
     if not isinstance(processor_types, collections.abc.Sequence):
         processor_types = (processor_types,)
 
+    # processor could be `None`. For example,
+    # Keep only TODO:
+    processor_types = tuple(p for p in processor_types if p is not None)
+
     return processor_types
 
 
@@ -176,7 +182,10 @@ def get_architectures_from_config_class(config_class, arch_mappings):
     """
 
     # A model architecture could appear in several mappings. For example, `BartForConditionalGeneration` is in
-    # TODO: ...
+    #   - MODEL_FOR_PRETRAINING_MAPPING_NAMES
+    #   - MODEL_WITH_LM_HEAD_MAPPING_NAMES
+    #   - MODEL_FOR_MASKED_LM_MAPPING_NAMES
+    #   - MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING_NAMES
     # We avoid the duplication.
     architectures = set()
 
@@ -272,19 +281,30 @@ def get_tiny_config(config_class):
 
     if hasattr(model_tester, "get_pipeline_config"):
         return model_tester.get_pipeline_config()
+    elif hasattr(model_tester, "prepare_config_and_inputs"):
+        # `PoolFormer` has no `get_config` defined. Furthermore, it's better to use `prepare_config_and_inputs` even if
+        # `get_config` is defined, since there might be some extra change in `prepare_config_and_inputs`.
+        return model_tester.prepare_config_and_inputs()[0]
     elif hasattr(model_tester, "get_config"):
         return model_tester.get_config()
 
 
 def build_processor(config_class, processor_class, output_folder):
-    """Create and save a processor for `processor_class`
+    """Create and save a processor for `processor_class`d
     """
     checkpoint = get_checkpoint_from_config_class(config_class)
+
+    if checkpoint is None:
+        return None
 
     try:
         # TODO: Use Auto API
         processor = processor_class.from_pretrained(checkpoint)
     except Exception as e:
+        # TODO: `YosoConfig` has a checkpoint `uw-madison/yoso-4096` without a sentencepiece file to load `AlbertTokenizer`.
+        if issubclass(processor_class, PreTrainedTokenizer):
+            if "not a string" in str(e):
+                return None
         return e
 
     return processor
@@ -299,6 +319,8 @@ def build_model(config_class, model_arch, output_folder):
         tiny_config = get_tiny_config(config_class)
         model = model_arch(config=tiny_config)
     except Exception as e:
+        f = type(e)
+        g = isinstance(e, Exception)
         return e
 
     return model
@@ -326,6 +348,17 @@ def build(config_class, to_create):
 
 
 if __name__ == "__main__":
+
+    # from transformers import PerceiverTokenizer
+    # s = PerceiverTokenizer.from_pretrained("deepmind/language-perceiver")
+    # t = AutoTokenizer.from_pretrained("deepmind/language-perceiver")
+
+    from transformers import AlbertTokenizer, AlbertTokenizerFast
+    t = AutoTokenizer.from_pretrained("uw-madison/yoso-4096")
+    t = AlbertTokenizerFast.from_pretrained("uw-madison/yoso-4096")
+    t = AlbertTokenizer.from_pretrained("uw-madison/yoso-4096")
+
+    exit(0)
 
     def list_str(values):
         return values.split(",")
@@ -378,10 +411,14 @@ if __name__ == "__main__":
         for c in final_config_classes
     }
 
+    # for c in final_config_classes:
+    #     d = get_checkpoint_from_config_class(c)
+    # exit(0)
+
     report = {"no_feature_extractor": [], "no_tokenizer": [], "identical_tokenizer": [], "vocab_sizes": {}}
 
     results = {}
-    for c, _to_create in list(to_create.items())[:3]:
+    for c, _to_create in list(to_create.items())[:]:
         print(c)
         result = build(c, _to_create)
         results[c] = result
@@ -389,10 +426,16 @@ if __name__ == "__main__":
 
     _results = {}
     for k in results:
-        _results[str(k)] = {}
+        #_results[str(k)] = {}
         for k1 in results[k]:
-             if isinstance(results[k][k1], Exception):
-                 _results[str(k)][str(k1)] = results[k][k1]
+            #_results[str(k)][str(k1)] = {}
+            for k2 in results[k][k1]:
+                if isinstance(results[k][k1][k2], Exception):
+                    if str(k) not in _results:
+                        _results[str(k)] = {}
+                    if str(k1) not in _results[str(k)]:
+                        _results[str(k)][str(k1)] = {}
+                    _results[str(k)][str(k1)][str(k2)] = str(results[k][k1][k2])
 
     with open("build_failed", "w") as fp:
         json.dump(_results, fp, ensure_ascii=True, indent=4)
