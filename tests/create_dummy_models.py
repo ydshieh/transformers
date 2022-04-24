@@ -447,7 +447,14 @@ def build_model(config_class, model_arch, output_folder, processors=None):
     """Create and save a model for `model_arch`.
     """
 
-    output_folder = os.path.join(output_folder, model_arch.__name__)
+    # Get framework-agnostic architecture name. Used to save all PT/TF/Flax models into the same directory/repo.
+    arch_name = model_arch.__name__
+    if arch_name.startswith("TF"):
+        arch_name = arch_name[2:]
+    elif arch_name.startswith("Flax"):
+        arch_name = arch_name[4:]
+
+    output_folder = os.path.join(output_folder, arch_name)
 
     vocab_size = None
     # Save the (same set of) processors for each `model_arch` with the same `model_type`.
@@ -498,11 +505,29 @@ def build(config_class, to_create, output_folder):
         result["pytorch"][pytorch_arch] = model
 
     for tensorflow_arch in to_create["tensorflow"]:
-        model = build_model(config_class, tensorflow_arch, output_folder=output_folder, processors=processors)
+
+        # Make PT/TF weights compatible
+        pt_arch_name = tensorflow_arch.__name__[2:]  # Remove `TF`
+        if pt_arch_name in result["pytorch"]:
+            ckpt = os.path.join(output_folder, pt_arch_name)
+            model = tensorflow_arch.from_pretrained(ckpt, from_pt=True)
+            model.save_pretrained(ckpt)
+        else:
+            model = build_model(config_class, tensorflow_arch, output_folder=output_folder, processors=processors)
+
         result["tensorflow"][tensorflow_arch] = model
 
     for flax_arch in to_create["flax"]:
-        model = build_model(config_class, flax_arch, output_folder=output_folder, processors=processors)
+
+        # Make PT/Flax weights compatible
+        pt_arch_name = flax_arch.__name__[4:]  # Remove `Flax`
+        if pt_arch_name in result["pytorch"]:
+            ckpt = os.path.join(output_folder, pt_arch_name)
+            model = flax_arch.from_pretrained(ckpt, from_pt=True)
+            model.save_pretrained(ckpt)
+        else:
+            model = build_model(config_class, flax_arch, output_folder=output_folder, processors=processors)
+
         result["flax"][flax_arch] = model
 
     return result
