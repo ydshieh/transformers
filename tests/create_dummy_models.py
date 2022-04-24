@@ -501,10 +501,15 @@ def build(config_class, to_create, output_folder):
     result["processor"] = {type(p): p for p in processors}
 
     for pytorch_arch in to_create["pytorch"]:
+        if "RemBert" in pytorch_arch.__name__:
+            import pdb; pdb.set_trace()
         model = build_model(config_class, pytorch_arch, output_folder=output_folder, processors=processors)
         result["pytorch"][pytorch_arch] = model
 
     for tensorflow_arch in to_create["tensorflow"]:
+
+        if "RemBert" in tensorflow_arch.__name__:
+            import pdb; pdb.set_trace()
 
         # Make PT/TF weights compatible
         pt_arch_name = tensorflow_arch.__name__[2:]  # Remove `TF`
