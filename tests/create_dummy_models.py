@@ -421,14 +421,21 @@ def convert_processors(processors):
     for tokenizer in tokenizers:
         if isinstance(tokenizer, PreTrainedTokenizerFast):
             fast_tokenizer = tokenizer
-            fast_tokenizer = convert_tokenizer(fast_tokenizer)
+            try:
+                fast_tokenizer = convert_tokenizer(fast_tokenizer)
+            except:
+                pass
         else:
             slow_tokenizer = tokenizer
 
     if fast_tokenizer:
         with tempfile.TemporaryDirectory() as temp_dir:
-            fast_tokenizer.save_pretrained(temp_dir, legacy_format=True)
-            slow_tokenizer = AutoTokenizer.from_pretrained(temp_dir, fast_tokenizer=False)
+            try:
+                fast_tokenizer.save_pretrained(temp_dir, legacy_format=False)
+                fast_tokenizer.save_pretrained(temp_dir, legacy_format=True)
+                slow_tokenizer = AutoTokenizer.from_pretrained(temp_dir, fast_tokenizer=False)
+            except:
+                pass
 
     processors = [fast_tokenizer, slow_tokenizer] + feature_extractors
     processors = [p for p in processors if p is not None]
