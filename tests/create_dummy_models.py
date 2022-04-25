@@ -386,8 +386,11 @@ def build_processor(config_class, processor_class):
 
             # try to build a `ProcessorMixin`, so we can return the value
             if all(len(v) > 0 for v in attrs.values()):
-                processor = processor_class(**{k: v[0] for k, v in attrs})
-            else:
+                try:
+                    processor = processor_class(**{k: v[0] for k, v in attrs})
+                except:
+                    pass
+            if processor is None:
                 # deal with `WavLMConfig` with `Wav2Vec2Processor` which uses `AutoTokenizer`
                 for v in attrs.values():
                     if len(v) > 0:
@@ -446,6 +449,9 @@ def convert_processors(processors, output_folder):
 
     processors = [fast_tokenizer, slow_tokenizer] + feature_extractors
     processors = [p for p in processors if p is not None]
+
+    for p in processors:
+        p.save_pretrained(output_folder)
 
     return processors
 
@@ -533,25 +539,25 @@ def build(config_class, to_create, output_folder):
 
         result["tensorflow"][tensorflow_arch] = model
 
-    for flax_arch in to_create["flax"]:
-
-        # Make PT/Flax weights compatible
-        pt_arch_name = flax_arch.__name__[4:]  # Remove `Flax`
-        pt_arch = getattr(transformers_module, pt_arch_name)
-        if isinstance(result["pytorch"].get(pt_arch, None), torch.nn.Module):
-            ckpt = os.path.join(output_folder, pt_arch_name)
-            # Use the same weights from PyTorch.
-            try:
-                model = flax_arch.from_pretrained(ckpt, from_pt=True)
-                model.save_pretrained(ckpt)
-            except:
-                # Conversion may fail. One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`
-                # yet.
-                model = None
-        else:
-            model = build_model(config_class, flax_arch, output_folder=output_folder, processors=processors)
-
-        result["flax"][flax_arch] = model
+    # for flax_arch in to_create["flax"]:
+    #
+    #     # Make PT/Flax weights compatible
+    #     pt_arch_name = flax_arch.__name__[4:]  # Remove `Flax`
+    #     pt_arch = getattr(transformers_module, pt_arch_name)
+    #     if isinstance(result["pytorch"].get(pt_arch, None), torch.nn.Module):
+    #         ckpt = os.path.join(output_folder, pt_arch_name)
+    #         # Use the same weights from PyTorch.
+    #         try:
+    #             model = flax_arch.from_pretrained(ckpt, from_pt=True)
+    #             model.save_pretrained(ckpt)
+    #         except:
+    #             # Conversion may fail. One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`
+    #             # yet.
+    #             model = None
+    #     else:
+    #         model = build_model(config_class, flax_arch, output_folder=output_folder, processors=processors)
+    #
+    #     result["flax"][flax_arch] = model
 
     return result
 
@@ -605,7 +611,7 @@ if __name__ == "__main__":
             "processor": processor_type_map[c],
             "pytorch": get_architectures_from_config_class(c, pytorch_arch_mappings),
             "tensorflow": get_architectures_from_config_class(c, tensorflow_arch_mappings),
-            "flax": get_architectures_from_config_class(c, flax_arch_mappings),
+            #"flax": get_architectures_from_config_class(c, flax_arch_mappings),
         }
         for c in final_config_classes
     }
