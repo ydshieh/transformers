@@ -510,8 +510,14 @@ def build(config_class, to_create, output_folder):
         pt_arch = getattr(transformers_module, pt_arch_name)
         if isinstance(result["pytorch"].get(pt_arch, None), torch.nn.Module):
             ckpt = os.path.join(output_folder, pt_arch_name)
-            model = tensorflow_arch.from_pretrained(ckpt, from_pt=True)
-            model.save_pretrained(ckpt)
+            # Use the same weights from PyTorch.
+            try:
+                model = tensorflow_arch.from_pretrained(ckpt, from_pt=True)
+                model.save_pretrained(ckpt)
+            except:
+                # Conversion may fail. One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`
+                # yet.
+                model = None
         else:
             model = build_model(config_class, tensorflow_arch, output_folder=output_folder, processors=processors)
 
@@ -524,8 +530,14 @@ def build(config_class, to_create, output_folder):
         pt_arch = getattr(transformers_module, pt_arch_name)
         if isinstance(result["pytorch"].get(pt_arch, None), torch.nn.Module):
             ckpt = os.path.join(output_folder, pt_arch_name)
-            model = flax_arch.from_pretrained(ckpt, from_pt=True)
-            model.save_pretrained(ckpt)
+            # Use the same weights from PyTorch.
+            try:
+                model = flax_arch.from_pretrained(ckpt, from_pt=True)
+                model.save_pretrained(ckpt)
+            except:
+                # Conversion may fail. One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`
+                # yet.
+                model = None
         else:
             model = build_model(config_class, flax_arch, output_folder=output_folder, processors=processors)
 
