@@ -387,7 +387,12 @@ def build_processor(config_class, processor_class):
             # try to build a `ProcessorMixin`, so we can return the value
             if all(len(v) > 0 for v in attrs.values()):
                 processor = processor_class(**{k: v[0] for k, v in attrs})
-
+            else:
+                # deal with `WavLMConfig` with `Wav2Vec2Processor` which uses `AutoTokenizer`
+                for v in attrs.values():
+                    if len(v) > 0:
+                        processor = v[0]
+                        break
         else:
             # `checkpoint` might miss some files to load the processor. For example, `facebook/hubert-base-ls960`
             # has no tokenizer files to load `Wav2Vec2CTCTokenizer`.
