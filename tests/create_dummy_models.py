@@ -455,10 +455,11 @@ def build_model(config_class, model_arch, output_folder, processors=None):
     elif arch_name.startswith("Flax"):
         arch_name = arch_name[4:]
 
-    tokenizer_output_folder = os.path.join(output_folder, "tokenizers")
+    processor_output_folder = os.path.join(output_folder, "processors")
     model_output_folder = os.path.join(output_folder, arch_name)
     # copy the (same set of) processors to the model specific folder
-    shutil.copytree(tokenizer_output_folder, model_output_folder)
+    if os.path.isdir(processor_output_folder):
+        shutil.copytree(processor_output_folder, model_output_folder)
 
     vocab_size = None
     # Save the (same set of) processors for each `model_arch` with the same `model_type`.
@@ -499,8 +500,8 @@ def build(config_class, to_create, output_folder):
 
     # Try to reduce (fast) tokenizer's vocab size, and if successful, update the corresponding slow tokenizer (if any).
     processors = list(result["processor"].values())
-    tokenizer_output_folder = os.path.join(output_folder, "tokenizers")
-    processors = convert_processors(processors, tokenizer_output_folder)
+    processor_output_folder = os.path.join(output_folder, "processors")
+    processors = convert_processors(processors, processor_output_folder)
     # update `result`
     result["processor"] = {type(p): p for p in processors}
 
