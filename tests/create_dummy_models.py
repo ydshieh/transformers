@@ -459,7 +459,7 @@ def build_model(config_class, model_arch, output_folder, processors=None):
     model_output_folder = os.path.join(output_folder, arch_name)
     # copy the (same set of) processors to the model specific folder
     if os.path.isdir(processor_output_folder):
-        shutil.copytree(processor_output_folder, model_output_folder)
+        shutil.copytree(processor_output_folder, model_output_folder, dirs_exist_ok=True)
 
     vocab_size = None
     # Save the (same set of) processors for each `model_arch` with the same `model_type`.
