@@ -1,6 +1,6 @@
 import json
 import os
-
+import shutil
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -399,12 +399,11 @@ def build_processor(config_class, processor_class):
     return processor
 
 
-def convert_processors(processors):
+def convert_processors(processors, output_folder):
     """Reduce the tokenizer's `vocab_size`, and update the slow tokenizer too (if any).
 
     Also remove the entries with `None` value.
     """
-
     tokenizers = []
     feature_extractors = []
     for processor in processors:
@@ -429,13 +428,16 @@ def convert_processors(processors):
             slow_tokenizer = tokenizer
 
     if fast_tokenizer:
-        with tempfile.TemporaryDirectory() as temp_dir:
-            try:
-                fast_tokenizer.save_pretrained(temp_dir, legacy_format=False)
-                fast_tokenizer.save_pretrained(temp_dir, legacy_format=True)
-                slow_tokenizer = AutoTokenizer.from_pretrained(temp_dir, fast_tokenizer=False)
-            except:
-                pass
+        # Update the slow tokenizer from the (possibly converted) fast tokenizer.
+        slow_tokenizer = None
+        try:
+            fast_tokenizer.save_pretrained(output_folder, legacy_format=False)
+            fast_tokenizer.save_pretrained(output_folder, legacy_format=True)
+            slow_tokenizer = AutoTokenizer.from_pretrained(output_folder, fast_tokenizer=False)
+        except:
+            pass
+    elif slow_tokenizer:
+        slow_tokenizer.save_pretrained(output_folder)
 
     processors = [fast_tokenizer, slow_tokenizer] + feature_extractors
     processors = [p for p in processors if p is not None]
@@ -446,7 +448,6 @@ def convert_processors(processors):
 def build_model(config_class, model_arch, output_folder, processors=None):
     """Create and save a model for `model_arch`.
     """
-
     # Get framework-agnostic architecture name. Used to save all PT/TF/Flax models into the same directory/repo.
     arch_name = model_arch.__name__
     if arch_name.startswith("TF"):
@@ -454,12 +455,14 @@ def build_model(config_class, model_arch, output_folder, processors=None):
     elif arch_name.startswith("Flax"):
         arch_name = arch_name[4:]
 
-    output_folder = os.path.join(output_folder, arch_name)
+    tokenizer_output_folder = os.path.join(output_folder, "tokenizers")
+    model_output_folder = os.path.join(output_folder, arch_name)
+    # copy the (same set of) processors to the model specific folder
+    shutil.copytree(tokenizer_output_folder, model_output_folder)
 
     vocab_size = None
     # Save the (same set of) processors for each `model_arch` with the same `model_type`.
     for p in processors:
-        p.save_pretrained(output_folder)
         if isinstance(p, PreTrainedTokenizerBase):
             vocab_size = p.vocab_size
 
@@ -477,7 +480,7 @@ def build_model(config_class, model_arch, output_folder, processors=None):
                 setattr(tiny_config, k, v)
 
         model = model_arch(config=tiny_config)
-        model.save_pretrained(output_folder)
+        model.save_pretrained(model_output_folder)
 
     except Exception as e:
         return e
@@ -496,7 +499,8 @@ def build(config_class, to_create, output_folder):
 
     # Try to reduce (fast) tokenizer's vocab size, and if successful, update the corresponding slow tokenizer (if any).
     processors = list(result["processor"].values())
-    processors = convert_processors(processors)
+    tokenizer_output_folder = os.path.join(output_folder, "tokenizers")
+    processors = convert_processors(processors, tokenizer_output_folder)
     # update `result`
     result["processor"] = {type(p): p for p in processors}
 
