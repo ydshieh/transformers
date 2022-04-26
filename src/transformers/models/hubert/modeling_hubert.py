@@ -70,6 +70,8 @@ HUBERT_PRETRAINED_MODEL_ARCHIVE_LIST = [
     # See all Hubert models at https://huggingface.co/models?filter=hubert
 ]
 
+pt_results = {}
+
 
 # Copied from transformers.models.wav2vec2.modeling_wav2vec2._compute_mask_indices
 def _compute_mask_indices(
@@ -620,13 +622,24 @@ class HubertEncoderLayerStableLayerNorm(nn.Module):
 
     def forward(self, hidden_states, attention_mask=None, output_attentions=False):
         attn_residual = hidden_states
+        pt_results["HubertEncoderLayerStableLayerNorm.attn_residual"] = hidden_states
+
         hidden_states = self.layer_norm(hidden_states)
+        pt_results["HubertEncoderLayerStableLayerNorm.hidden_states_1"] = hidden_states
+
         hidden_states, attn_weights, _ = self.attention(
             hidden_states, attention_mask=attention_mask, output_attentions=output_attentions
         )
+        pt_results["HubertEncoderLayerStableLayerNorm.hidden_states_2"] = hidden_states
+
         hidden_states = self.dropout(hidden_states)
+        pt_results["HubertEncoderLayerStableLayerNorm.hidden_states_2"] = hidden_states
+
         hidden_states = attn_residual + hidden_states
+        pt_results["HubertEncoderLayerStableLayerNorm.hidden_states_4"] = hidden_states
+
         hidden_states = hidden_states + self.feed_forward(self.final_layer_norm(hidden_states))
+        pt_results["HubertEncoderLayerStableLayerNorm.hidden_states_5"] = hidden_states
 
         outputs = (hidden_states,)
 

@@ -46,6 +46,8 @@ TF_HUBERT_PRETRAINED_MODEL_ARCHIVE_LIST = [
 
 LARGE_NEGATIVE = -1e8
 
+tf_results = {}
+
 
 # Copied from transformers.models.wav2vec2.modeling_tf_wav2vec2.input_values_processing
 def input_values_processing(func, config, input_values, **kwargs):
@@ -993,13 +995,24 @@ class TFHubertEncoderLayerStableLayerNorm(tf.keras.layers.Layer):
         training: bool = False,
     ) -> Tuple[tf.Tensor]:
         attn_residual = hidden_states
+        tf_results["HubertEncoderLayerStableLayerNorm.attn_residual"] = hidden_states
+
         hidden_states = self.layer_norm(hidden_states)
+        tf_results["HubertEncoderLayerStableLayerNorm.hidden_states_1"] = hidden_states
+
         hidden_states, attn_weights, _ = self.attention(
             hidden_states, attention_mask=attention_mask, training=training
         )
+        tf_results["HubertEncoderLayerStableLayerNorm.hidden_states_2"] = hidden_states
+
         hidden_states = self.dropout(hidden_states, training=training)
+        tf_results["HubertEncoderLayerStableLayerNorm.hidden_states_3"] = hidden_states
+
         hidden_states = attn_residual + hidden_states
+        tf_results["HubertEncoderLayerStableLayerNorm.hidden_states_4"] = hidden_states
+
         hidden_states = hidden_states + self.feed_forward(self.final_layer_norm(hidden_states))
+        tf_results["HubertEncoderLayerStableLayerNorm.hidden_states_5"] = hidden_states
 
         outputs = (hidden_states,)
 
