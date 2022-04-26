@@ -633,7 +633,7 @@ class HubertEncoderLayerStableLayerNorm(nn.Module):
         pt_results["HubertEncoderLayerStableLayerNorm.hidden_states_2"] = hidden_states
 
         hidden_states = self.dropout(hidden_states)
-        pt_results["HubertEncoderLayerStableLayerNorm.hidden_states_2"] = hidden_states
+        pt_results["HubertEncoderLayerStableLayerNorm.hidden_states_3"] = hidden_states
 
         hidden_states = attn_residual + hidden_states
         pt_results["HubertEncoderLayerStableLayerNorm.hidden_states_4"] = hidden_states
