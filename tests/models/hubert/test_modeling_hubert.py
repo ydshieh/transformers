@@ -23,6 +23,7 @@ import unittest
 
 import pytest
 
+import transformers
 from transformers import HubertConfig, is_torch_available
 from transformers.testing_utils import require_soundfile, require_torch, slow, torch_device
 from transformers.utils import is_torch_fx_available
@@ -567,7 +568,6 @@ class HubertRobustModelTest(ModelTesterMixin, unittest.TestCase):
 
     def test_pt_tf_model_equivalence(self):
 
-        import transformers
         super().test_pt_tf_model_equivalence()
 
         pt_results = transformers.models.hubert.modeling_hubert.pt_results
