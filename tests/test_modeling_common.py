@@ -1766,7 +1766,7 @@ class ModelTesterMixin:
         import transformers
 
         results = {}
-        num_iter = 50
+        num_iter = 1
 
         for model_class in self.all_model_classes:
 

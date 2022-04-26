@@ -70,7 +70,7 @@ class HubertModelTester:
         conv_bias=False,
         num_conv_pos_embeddings=16,
         num_conv_pos_embedding_groups=2,
-        num_hidden_layers=4,
+        num_hidden_layers=1,
         num_attention_heads=2,
         hidden_dropout_prob=0.1,  # this is most likely not correctly set yet
         intermediate_size=20,
@@ -561,9 +561,27 @@ class HubertModelTest(ModelTesterMixin, unittest.TestCase):
 
 @require_torch
 class HubertRobustModelTest(ModelTesterMixin, unittest.TestCase):
-    all_model_classes = (HubertForCTC, HubertForSequenceClassification, HubertModel) if is_torch_available() else ()
+    all_model_classes = (HubertForCTC,) if is_torch_available() else ()
     test_pruning = False
     test_headmasking = False
+
+    def test_pt_tf_model_equivalence(self):
+
+        import transformers
+        super().test_pt_tf_model_equivalence()
+
+        pt_results = transformers.models.hubert.modeling_hubert.pt_results
+        tf_results = transformers.models.hubert.modeling_tf_hubert.tf_results
+
+        # pt_results["HubertFeatureEncoder.hidden_states"] = pt_results["HubertFeatureEncoder.hidden_states"].transpose(1, 2)
+
+        keys = tuple(tf_results.keys())
+        tf_outputs = tuple(tf_results[k] for k in keys)
+        pt_outputs = tuple(pt_results[k] for k in keys)
+        model_class = transformers.models.hubert.modeling_hubert.HubertForCTC
+
+        import pdb; pdb.set_trace()
+        super().check_pt_tf_outputs(tf_outputs, pt_outputs, model_class=model_class, tol=1e-5, name="outputs", attributes=keys)
 
     def setUp(self):
         self.model_tester = HubertModelTester(
