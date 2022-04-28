@@ -290,13 +290,17 @@ class Speech2TextModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.Tes
         tf_results = transformers.models.speech_to_text.modeling_tf_speech_to_text.test_results
 
         keys = tuple(tf_results.keys())
-        tf_outputs = tuple(tf_results[k] for k in keys)
-        pt_outputs = tuple(pt_results[k] for k in keys)
+        # tf_outputs = tuple(tf_results[k] for k in keys)
+        # pt_outputs = tuple(pt_results[k] for k in keys)
         model_class = transformers.models.speech_to_text.modeling_speech_to_text.Speech2TextModel
 
-        # import pdb; pdb.set_trace()
         results = {}
-        super().check_pt_tf_outputs(tf_outputs, pt_outputs, model_class=model_class, tol=1e-5, name="outputs", attributes=keys, context="extra", results=results)
+        # import pdb; pdb.set_trace()
+        num_runs = len(tf_results[keys[0]])
+        for idx in range(num_runs):
+            tf_outputs = tuple(tf_results[k][idx] for k in keys)
+            pt_outputs = tuple(pt_results[k][idx] for k in keys)
+            super().check_pt_tf_outputs(tf_outputs, pt_outputs, model_class=model_class, tol=1e-5, name="outputs", attributes=keys, context="extra", results=results)
 
         import numpy as np
         from copy import deepcopy
