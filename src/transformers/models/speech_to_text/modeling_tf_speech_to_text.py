@@ -63,6 +63,8 @@ TF_SPEECH_TO_TEXT_PRETRAINED_MODEL_ARCHIVE_LIST = [
 LARGE_NEGATIVE = -1e8
 
 
+test_results = {}
+
 # Copied from transformers.models.bart.modeling_tf_bart.shift_tokens_right
 def shift_tokens_right(input_ids: tf.Tensor, pad_token_id: int, decoder_start_token_id: int):
     pad_token_id = tf.cast(pad_token_id, input_ids.dtype)
@@ -840,8 +842,13 @@ class TFSpeech2TextEncoder(tf.keras.layers.Layer):
         if input_features is None:
             raise ValueError("You have to specify input_features")
 
+        test_results["input_features"] = input_features
+
         inputs_embeds = self.conv(input_features)
+        test_results["inputs_embeds_conv"] = inputs_embeds
+
         inputs_embeds = self.embed_scale * inputs_embeds
+        test_results["inputs_embeds_scaled"] = inputs_embeds
 
         # subsample attention mask if necessary
         if attention_mask is not None:
@@ -851,9 +858,13 @@ class TFSpeech2TextEncoder(tf.keras.layers.Layer):
             padding_mask = tf.zeros(inputs_embeds.shape[:-1], dtype=tf.int64)
 
         embed_pos = self.embed_positions(padding_mask)
+        test_results["embed_pos"] = embed_pos
 
         hidden_states = inputs_embeds + embed_pos
+        test_results["hidden_states_with_pos"] = hidden_states
+
         hidden_states = self.dropout(hidden_states, training=training)
+        test_results["hidden_states_dropout"] = hidden_states
 
         # check attention mask and invert
         if attention_mask is not None:
@@ -1049,7 +1060,8 @@ class TFSpeech2TextDecoder(tf.keras.layers.Layer):
         past_key_values_length = shape_list(past_key_values[0][0])[2] if past_key_values is not None else 0
 
         if inputs_embeds is None:
-            inputs_embeds = self.embed_tokens(input_ids) * self.embed_scale
+            inputs_embeds = self.embed_tokens(input_ids)
+            inputs_embeds = inputs_embeds * self.embed_scale
         else:
             inputs_embeds = inputs_embeds
 

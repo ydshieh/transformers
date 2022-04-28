@@ -45,6 +45,8 @@ SPEECH_TO_TEXT_PRETRAINED_MODEL_ARCHIVE_LIST = [
     # See all Speech2Text models at https://huggingface.co/models?filter=speech_to_text
 ]
 
+test_results = {}
+
 
 # Copied from transformers.models.bart.modeling_bart.shift_tokens_right
 def shift_tokens_right(input_ids: torch.Tensor, pad_token_id: int, decoder_start_token_id: int):
@@ -767,8 +769,14 @@ class Speech2TextEncoder(Speech2TextPreTrainedModel):
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
         )
         return_dict = return_dict if return_dict is not None else self.config.use_return_dict
+
+        test_results["input_features"] = input_features
+
         inputs_embeds = self.conv(input_features)
+        test_results["inputs_embeds_conv"] = inputs_embeds
+
         inputs_embeds = self.embed_scale * inputs_embeds
+        test_results["inputs_embeds_scaled"] = inputs_embeds
 
         # subsample attention mask if necessary
         if attention_mask is not None:
@@ -778,9 +786,13 @@ class Speech2TextEncoder(Speech2TextPreTrainedModel):
             padding_mask = torch.zeros(inputs_embeds.shape[:2], dtype=torch.long, device=inputs_embeds.device)
 
         embed_pos = self.embed_positions(padding_mask)
+        test_results["embed_pos"] = embed_pos
 
         hidden_states = inputs_embeds + embed_pos
+        test_results["hidden_states_with_pos"] = hidden_states
+
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+        test_results["hidden_states_dropout"] = hidden_states
 
         # expand attention_mask
         if attention_mask is not None:

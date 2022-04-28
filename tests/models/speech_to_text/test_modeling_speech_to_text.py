@@ -272,7 +272,7 @@ class Speech2TextModelTester:
 
 @require_torch
 class Speech2TextModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.TestCase):
-    all_model_classes = (Speech2TextModel, Speech2TextForConditionalGeneration) if is_torch_available() else ()
+    all_model_classes = (Speech2TextModel,) if is_torch_available() else ()
     all_generative_model_classes = (Speech2TextForConditionalGeneration,) if is_torch_available() else ()
     is_encoder_decoder = True
     fx_compatible = True
@@ -280,6 +280,38 @@ class Speech2TextModelTest(ModelTesterMixin, GenerationTesterMixin, unittest.Tes
     test_missing_keys = False
 
     input_name = "input_features"
+
+    def test_pt_tf_model_equivalence(self):
+
+        import transformers
+        super().test_pt_tf_model_equivalence()
+
+        pt_results = transformers.models.speech_to_text.modeling_speech_to_text.test_results
+        tf_results = transformers.models.speech_to_text.modeling_tf_speech_to_text.test_results
+
+        keys = tuple(tf_results.keys())
+        tf_outputs = tuple(tf_results[k] for k in keys)
+        pt_outputs = tuple(pt_results[k] for k in keys)
+        model_class = transformers.models.speech_to_text.modeling_speech_to_text.Speech2TextModel
+
+        # import pdb; pdb.set_trace()
+        results = {}
+        super().check_pt_tf_outputs(tf_outputs, pt_outputs, model_class=model_class, tol=1e-5, name="outputs", attributes=keys, context="extra", results=results)
+
+        import numpy as np
+        from copy import deepcopy
+        _results = deepcopy(results)
+        if len(self.all_model_classes) > 0:
+            for model_class_name in _results:
+                for context in _results[model_class_name]:
+                    for names in _results[model_class_name][context]:
+                        if not names.endswith("_max_diff"):
+                            results[model_class_name][context][names + "_max_diff"] = float(
+                                np.amax(np.array(_results[model_class_name][context][names])))
+
+            import json
+            with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra.json", "w", encoding="UTF-8") as fp:
+                json.dump(results, fp, ensure_ascii=False, indent=4)
 
     def setUp(self):
         self.model_tester = Speech2TextModelTester(self)

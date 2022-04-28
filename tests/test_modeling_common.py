@@ -1701,6 +1701,8 @@ class ModelTesterMixin:
             max_diff = np.amax(np.abs(tf_outputs - pt_outputs))
             ### self.assertLessEqual(max_diff, tol, f"{name}: Difference between torch and tf is {max_diff} (>= {tol}).")
 
+            if model_class.__name__ not in results:
+                results[model_class.__name__] = {}
             if context not in results[model_class.__name__]:
                 results[model_class.__name__][context] = {}
             if name not in results[model_class.__name__][context]:
@@ -1761,12 +1763,12 @@ class ModelTesterMixin:
 
         self.check_pt_tf_outputs(tf_outputs, pt_outputs, type(pt_model), context=context, results=results)
 
-    @is_pt_tf_cross_test
+    # @is_pt_tf_cross_test
     def test_pt_tf_model_equivalence(self):
         import transformers
 
         results = {}
-        num_iter = 1
+        num_iter = 100
 
         for model_class in self.all_model_classes:
 
