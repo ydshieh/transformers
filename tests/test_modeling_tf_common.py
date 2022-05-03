@@ -567,12 +567,12 @@ class TFModelTesterMixin:
 
         self.check_pt_tf_outputs(tf_outputs, pt_outputs, type(tf_model), context=context, results=results)
 
-    @is_pt_tf_cross_test
+    #@is_pt_tf_cross_test
     def test_pt_tf_model_equivalence(self):
         import transformers
 
         results = {}
-        num_iter = 2
+        num_iter = 1
 
         for model_class in self.all_model_classes:
 
