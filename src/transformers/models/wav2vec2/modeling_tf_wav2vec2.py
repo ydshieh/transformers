@@ -56,6 +56,7 @@ TF_WAV_2_VEC_2_PRETRAINED_MODEL_ARCHIVE_LIST = [
 
 LARGE_NEGATIVE = -1e8
 
+tf_results = {}
 
 @dataclass
 class TFWav2Vec2BaseModelOutput(ModelOutput):
@@ -977,15 +978,34 @@ class TFWav2Vec2EncoderLayer(tf.keras.layers.Layer):
         training: bool = False,
     ) -> Tuple[tf.Tensor]:
         attn_residual = hidden_states
+
+        tf_results["Wav2Vec2EncoderLayer.attn_residual"] = attn_residual
+
         hidden_states, attn_weights, _ = self.attention(
             hidden_states, attention_mask=attention_mask, training=training
         )
+
+        tf_results["Wav2Vec2EncoderLayer.hidden_states_after_attention"] = hidden_states
+
         hidden_states = self.dropout(hidden_states, training=training)
+
+        tf_results["Wav2Vec2EncoderLayer.hidden_states_after_dropout"] = hidden_states
+
         hidden_states = attn_residual + hidden_states
 
+        tf_results["Wav2Vec2EncoderLayer.hidden_states_after_sum"] = hidden_states
+
         hidden_states = self.layer_norm(hidden_states)
+
+        tf_results["Wav2Vec2EncoderLayer.hidden_states_after_layer_norm"] = hidden_states
+
         hidden_states = hidden_states + self.feed_forward(hidden_states)
+
+        tf_results["Wav2Vec2EncoderLayer.hidden_states_after_feed_forward"] = hidden_states
+
         hidden_states = self.final_layer_norm(hidden_states)
+
+        tf_results["Wav2Vec2EncoderLayer.hidden_states_after_final_layer_norm"] = hidden_states
 
         outputs = (hidden_states,)
 

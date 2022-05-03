@@ -90,6 +90,9 @@ WAV_2_VEC_2_PRETRAINED_MODEL_ARCHIVE_LIST = [
 ]
 
 
+pt_results = {}
+
+
 @dataclass
 class Wav2Vec2ForPreTrainingOutput(ModelOutput):
     """
@@ -672,15 +675,34 @@ class Wav2Vec2EncoderLayer(nn.Module):
 
     def forward(self, hidden_states, attention_mask=None, output_attentions=False):
         attn_residual = hidden_states
+
+        pt_results["Wav2Vec2EncoderLayer.attn_residual"] = attn_residual
+
         hidden_states, attn_weights, _ = self.attention(
             hidden_states, attention_mask=attention_mask, output_attentions=output_attentions
         )
+
+        pt_results["Wav2Vec2EncoderLayer.hidden_states_after_attention"] = hidden_states
+
         hidden_states = self.dropout(hidden_states)
+
+        pt_results["Wav2Vec2EncoderLayer.hidden_states_after_dropout"] = hidden_states
+
         hidden_states = attn_residual + hidden_states
 
+        pt_results["Wav2Vec2EncoderLayer.hidden_states_after_sum"] = hidden_states
+
         hidden_states = self.layer_norm(hidden_states)
+
+        pt_results["Wav2Vec2EncoderLayer.hidden_states_after_layer_norm"] = hidden_states
+
         hidden_states = hidden_states + self.feed_forward(hidden_states)
+
+        pt_results["Wav2Vec2EncoderLayer.hidden_states_after_feed_forward"] = hidden_states
+
         hidden_states = self.final_layer_norm(hidden_states)
+
+        pt_results["Wav2Vec2EncoderLayer.hidden_states_after_final_layer_norm"] = hidden_states
 
         outputs = (hidden_states,)
 

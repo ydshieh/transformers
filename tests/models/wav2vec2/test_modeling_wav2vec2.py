@@ -20,6 +20,7 @@ import unittest
 import numpy as np
 from datasets import load_dataset
 
+import transformers
 from transformers import Wav2Vec2Config, is_torch_available
 from transformers.testing_utils import (
     is_pt_flax_cross_test,
@@ -89,7 +90,7 @@ class Wav2Vec2ModelTester:
         conv_bias=False,
         num_conv_pos_embeddings=16,
         num_conv_pos_embedding_groups=2,
-        num_hidden_layers=4,
+        num_hidden_layers=1,
         num_attention_heads=2,
         hidden_dropout_prob=0.1,  # this is most likely not correctly set yet
         intermediate_size=20,
@@ -415,7 +416,44 @@ class Wav2Vec2ModelTest(ModelTesterMixin, unittest.TestCase):
     test_headmasking = False
 
     def test_pt_tf_model_equivalence(self):
-        super().test_pt_tf_model_equivalence()
+        # super().test_pt_tf_model_equivalence()
+
+        results = {}
+        num_iter = 100
+
+        for _ in range(num_iter):
+            super().test_pt_tf_model_equivalence()
+
+            pt_results = transformers.models.wav2vec2.modeling_wav2vec2.pt_results
+            tf_results = transformers.models.wav2vec2.modeling_tf_wav2vec2.tf_results
+
+            # pt_results["HubertFeatureEncoder.hidden_states"] = pt_results["HubertFeatureEncoder.hidden_states"].transpose(1, 2)
+
+            keys = tuple(tf_results.keys())
+            tf_outputs = tuple(tf_results[k] for k in keys)
+            pt_outputs = tuple(pt_results[k] for k in keys)
+            model_class = transformers.models.wav2vec2.modeling_wav2vec2.Wav2Vec2Model
+
+            # import pdb; pdb.set_trace()
+
+            context = "extra"
+            super().check_pt_tf_outputs(tf_outputs, pt_outputs, model_class=model_class, tol=1e-5, name="outputs", attributes=keys, context=context, results=results)
+
+            from copy import deepcopy
+            _results = deepcopy(results)
+            if len(self.all_model_classes) > 0:
+                for model_class_name in _results:
+                    for context in _results[model_class_name]:
+                        for names in _results[model_class_name][context]:
+                            if not names.endswith("_max_diff"):
+                                results[model_class_name][context][names + "_max_diff"] = float(
+                                    np.amax(np.array(_results[model_class_name][context][names])))
+
+                import json
+                with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra.json", "w", encoding="UTF-8") as fp:
+                    json.dump(results, fp, ensure_ascii=False, indent=4)
+                with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra_backup.json", "w", encoding="UTF-8") as fp:
+                    json.dump(results, fp, ensure_ascii=False, indent=4)
 
     def setUp(self):
         self.model_tester = Wav2Vec2ModelTester(self)
