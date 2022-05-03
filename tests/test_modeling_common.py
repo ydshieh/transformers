@@ -1762,8 +1762,8 @@ class ModelTesterMixin:
             tf_outputs.loss = tf.math.reduce_mean(tf_loss)
 
         self.check_pt_tf_outputs(tf_outputs, pt_outputs, type(pt_model), context=context, results=results)
-        
-        if "outputs.hidden_states_1" in results[type(pt_model)][context]:
+
+        if "outputs.hidden_states_1" in results[type(pt_model).__name__][context]:
             max_diff = results[type(pt_model)][context]["outputs.hidden_states_1"][-1]
             if max_diff > 1e-4:
                 import pdb; pdb.set_trace()
