@@ -439,6 +439,19 @@ class Wav2Vec2ModelTest(ModelTesterMixin, unittest.TestCase):
             context = "extra"
             super().check_pt_tf_outputs(tf_outputs, pt_outputs, model_class=model_class, tol=1e-5, name="outputs", attributes=keys, context=context, results=results)
 
+            if results[model_class.__name__][context]["Wav2Vec2EncoderLayer.hidden_states_after_layer_norm"][-1] > 1e-3:
+                import pdb; pdb.set_trace()
+
+                pt_o = pt_results["Wav2Vec2EncoderLayer.attn_residual"].detach().to("cpu").numpy()
+                tf_o = tf_results["Wav2Vec2EncoderLayer.attn_residual"].numpy()
+                pt_o_mean = np.mean(pt_o, axis=-1, keepdims=True)
+                pt_o_var = np.var(pt_o, axis=-1, keepdims=True)
+                tf_o_mean = np.mean(tf_o, axis=-1, keepdims=True)
+                tf_o_var = np.var(tf_o, axis=-1, keepdims=True)
+                pt_normal = (pt_o - pt_o_mean) / np.sqrt(pt_o_var + 1e-5)
+                tf_normal = (tf_o - tf_o_mean) / np.sqrt(tf_o_var + 1e-5)
+                diff = np.amax(np.abs(pt_normal - tf_normal))
+
             from copy import deepcopy
             _results = deepcopy(results)
             if len(self.all_model_classes) > 0:

@@ -680,7 +680,13 @@ class TFWav2Vec2PositionalConvEmbedding(tf.keras.layers.Layer):
         self.activation = get_tf_activation(config.feat_extract_activation)
 
     def call(self, hidden_states: tf.Tensor) -> tf.Tensor:
+
+        tf_results["Wav2Vec2EncoderLayer.pos_conv.inputs"] = hidden_states
+
         hidden_states = self.conv(hidden_states)
+
+        tf_results["Wav2Vec2EncoderLayer.pos_conv.conv"] = hidden_states
+
         hidden_states = self.padding(hidden_states)
         hidden_states = self.activation(hidden_states)
         return hidden_states
@@ -979,6 +985,8 @@ class TFWav2Vec2EncoderLayer(tf.keras.layers.Layer):
     ) -> Tuple[tf.Tensor]:
         attn_residual = hidden_states
 
+        tf_results["Wav2Vec2EncoderLayer.attention_mask"] = attention_mask
+
         tf_results["Wav2Vec2EncoderLayer.attn_residual"] = attn_residual
 
         hidden_states, attn_weights, _ = self.attention(
@@ -996,6 +1004,7 @@ class TFWav2Vec2EncoderLayer(tf.keras.layers.Layer):
         tf_results["Wav2Vec2EncoderLayer.hidden_states_after_sum"] = hidden_states
 
         hidden_states = self.layer_norm(hidden_states)
+        hidden_states = self.layer_norm(attn_residual)
 
         tf_results["Wav2Vec2EncoderLayer.hidden_states_after_layer_norm"] = hidden_states
 
@@ -1077,15 +1086,28 @@ class TFWav2Vec2Encoder(tf.keras.layers.Layer):
         all_hidden_states = () if output_hidden_states else None
         all_self_attentions = () if output_attentions else None
 
+        tf_results["Wav2Vec2EncoderLayer.encoder.inputs"] = hidden_states
+
         if attention_mask is not None:
             hidden_states = hidden_states * tf.expand_dims(attention_mask, -1)
             attention_mask = _expand_mask(attention_mask)
         else:
             attention_mask = None
 
+        tf_results["Wav2Vec2EncoderLayer.encoder.masked_inputs"] = hidden_states
+
         position_embeddings = self.pos_conv_embed(hidden_states)
+
+        tf_results["Wav2Vec2EncoderLayer.encoder.position_embeddings"] = position_embeddings
+
         hidden_states = hidden_states + position_embeddings
+
+        tf_results["Wav2Vec2EncoderLayer.encoder.plus_pos_embed"] = hidden_states
+
         hidden_states = self.layer_norm(hidden_states)
+
+        tf_results["Wav2Vec2EncoderLayer.encoder.layer_norm"] = hidden_states
+
         hidden_states = self.dropout(hidden_states, training=training)
 
         for i, layer_module in enumerate(self.layer):
@@ -1304,6 +1326,8 @@ class TFWav2Vec2MainLayer(tf.keras.layers.Layer):
         )
         # extract_features = tf.transpose(extract_features, perm=(0, 2, 1))
 
+        tf_results["Wav2Vec2EncoderLayer.extract_features"] = extract_features
+
         if inputs["attention_mask"] is not None:
             # compute real output lengths according to convolution formula
             output_lengths = self._get_feat_extract_output_lengths(tf.reduce_sum(inputs["attention_mask"], -1))
@@ -1314,9 +1338,13 @@ class TFWav2Vec2MainLayer(tf.keras.layers.Layer):
 
         hidden_states, extract_features = self.feature_projection(extract_features, training=inputs["training"])
 
+        tf_results["Wav2Vec2EncoderLayer.feature_projection"] = hidden_states
+
         mask_time_indices = kwargs.get("mask_time_indices", None)
         if inputs["training"]:
             hidden_states = self._mask_hidden_states(hidden_states, mask_time_indices=mask_time_indices)
+
+        tf_results["Wav2Vec2EncoderLayer.masked_feature_projection"] = hidden_states
 
         encoder_outputs = self.encoder(
             hidden_states,

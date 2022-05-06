@@ -373,6 +373,8 @@ class Wav2Vec2PositionalConvEmbedding(nn.Module):
             groups=config.num_conv_pos_embedding_groups,
         )
 
+
+        self.config = config
         if is_deepspeed_zero3_enabled():
             import deepspeed
 
@@ -387,9 +389,16 @@ class Wav2Vec2PositionalConvEmbedding(nn.Module):
         self.activation = ACT2FN[config.feat_extract_activation]
 
     def forward(self, hidden_states):
+
+        #import pdb; pdb.set_trace()
+
         hidden_states = hidden_states.transpose(1, 2)
 
+        pt_results["Wav2Vec2EncoderLayer.pos_conv.inputs"] = hidden_states.transpose(1, 2)
         hidden_states = self.conv(hidden_states)
+
+        pt_results["Wav2Vec2EncoderLayer.pos_conv.conv"] = hidden_states.transpose(1, 2)
+
         hidden_states = self.padding(hidden_states)
         hidden_states = self.activation(hidden_states)
 
@@ -676,6 +685,9 @@ class Wav2Vec2EncoderLayer(nn.Module):
     def forward(self, hidden_states, attention_mask=None, output_attentions=False):
         attn_residual = hidden_states
 
+
+        pt_results["Wav2Vec2EncoderLayer.attention_mask"] = attention_mask
+
         pt_results["Wav2Vec2EncoderLayer.attn_residual"] = attn_residual
 
         hidden_states, attn_weights, _ = self.attention(
@@ -693,6 +705,7 @@ class Wav2Vec2EncoderLayer(nn.Module):
         pt_results["Wav2Vec2EncoderLayer.hidden_states_after_sum"] = hidden_states
 
         hidden_states = self.layer_norm(hidden_states)
+        hidden_states = self.layer_norm(attn_residual)
 
         pt_results["Wav2Vec2EncoderLayer.hidden_states_after_layer_norm"] = hidden_states
 
@@ -765,6 +778,8 @@ class Wav2Vec2Encoder(nn.Module):
         all_hidden_states = () if output_hidden_states else None
         all_self_attentions = () if output_attentions else None
 
+        pt_results["Wav2Vec2EncoderLayer.encoder.inputs"] = hidden_states
+
         if attention_mask is not None:
             # make sure padded tokens output 0
             expand_attention_mask = attention_mask.unsqueeze(-1).repeat(1, 1, hidden_states.shape[2])
@@ -777,9 +792,20 @@ class Wav2Vec2Encoder(nn.Module):
                 attention_mask.shape[0], 1, attention_mask.shape[-1], attention_mask.shape[-1]
             )
 
+        pt_results["Wav2Vec2EncoderLayer.encoder.masked_inputs"] = hidden_states
+
         position_embeddings = self.pos_conv_embed(hidden_states)
+
+        pt_results["Wav2Vec2EncoderLayer.encoder.position_embeddings"] = position_embeddings
+
         hidden_states = hidden_states + position_embeddings
+
+        pt_results["Wav2Vec2EncoderLayer.encoder.plus_pos_embed"] = hidden_states
+
         hidden_states = self.layer_norm(hidden_states)
+
+        pt_results["Wav2Vec2EncoderLayer.encoder.layer_norm"] = hidden_states
+
         hidden_states = self.dropout(hidden_states)
 
         deepspeed_zero3_is_enabled = is_deepspeed_zero3_enabled()
@@ -1314,6 +1340,8 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
         extract_features = self.feature_extractor(input_values)
         extract_features = extract_features.transpose(1, 2)
 
+        pt_results["Wav2Vec2EncoderLayer.extract_features"] = extract_features
+
         if attention_mask is not None:
             # compute reduced attention_mask corresponding to feature vectors
             attention_mask = self._get_feature_vector_attention_mask(
@@ -1321,9 +1349,14 @@ class Wav2Vec2Model(Wav2Vec2PreTrainedModel):
             )
 
         hidden_states, extract_features = self.feature_projection(extract_features)
+
+        pt_results["Wav2Vec2EncoderLayer.feature_projection"] = hidden_states
+
         hidden_states = self._mask_hidden_states(
             hidden_states, mask_time_indices=mask_time_indices, attention_mask=attention_mask
         )
+
+        pt_results["Wav2Vec2EncoderLayer.masked_feature_projection"] = hidden_states
 
         encoder_outputs = self.encoder(
             hidden_states,
