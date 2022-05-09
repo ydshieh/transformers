@@ -705,7 +705,6 @@ class Wav2Vec2EncoderLayer(nn.Module):
         pt_results["Wav2Vec2EncoderLayer.hidden_states_after_sum"] = hidden_states
 
         hidden_states = self.layer_norm(hidden_states)
-        hidden_states = self.layer_norm(attn_residual)
 
         pt_results["Wav2Vec2EncoderLayer.hidden_states_after_layer_norm"] = hidden_states
 

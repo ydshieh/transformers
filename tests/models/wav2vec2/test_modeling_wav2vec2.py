@@ -14,6 +14,29 @@
 # limitations under the License.
 """ Testing suite for the PyTorch Wav2Vec2 model. """
 
+
+# import os
+# import tensorflow as tf
+# physical_devices = tf.config.list_physical_devices('GPU')
+# try:
+#   # Disable first GPU
+#   tf.config.set_visible_devices(physical_devices[1:], 'GPU')
+#   logical_devices = tf.config.list_logical_devices('GPU')
+#   # Logical device was not created for first GPU
+#   assert len(logical_devices) == len(physical_devices) - 1
+# except:
+#   # Invalid device or cannot modify virtual devices once initialized.
+#   pass
+
+
+## The flag below controls whether to allow TF32 on matmul. This flag defaults to True.
+#torch.backends.cuda.matmul.allow_tf32 = False
+## The flag below controls whether to allow TF32 on cuDNN. This flag defaults to True.
+#torch.backends.cudnn.allow_tf32 = False
+#import tensorflow as tf
+#tf.config.experimental.enable_tensor_float_32_execution(False)
+
+
 import math
 import unittest
 
