@@ -265,7 +265,7 @@ class TFViTMAEModelTest(TFModelTesterMixin, unittest.TestCase):
 
     # overwrite from common since TFViTMAEForPretraining has random masking, we need to fix the noise
     # to generate masks during test
-    def check_pt_tf_models(self, tf_model, pt_model, tf_inputs_dict):
+    def check_pt_tf_models(self, tf_model, pt_model, tf_inputs_dict, context=None, results=None):
 
         # make masks reproducible
         np.random.seed(2)
@@ -278,7 +278,7 @@ class TFViTMAEModelTest(TFModelTesterMixin, unittest.TestCase):
         # PT inputs will be prepared in `super().check_pt_tf_models()` with this added `noise` argument
         tf_inputs_dict["noise"] = tf_noise
 
-        super().check_pt_tf_models(tf_model, pt_model, tf_inputs_dict)
+        super().check_pt_tf_models(tf_model, pt_model, tf_inputs_dict, context=context, results=results)
 
     # overwrite from common since TFViTMAEForPretraining outputs loss along with
     # logits and mask indices. loss and mask indices are not suitable for integration
