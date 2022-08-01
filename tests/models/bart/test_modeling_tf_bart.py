@@ -46,10 +46,10 @@ class TFBartModelTester:
         is_training=True,
         use_labels=False,
         vocab_size=99,
-        hidden_size=32 * 4,
-        num_hidden_layers=24,
+        hidden_size=32 * 1,
+        num_hidden_layers=5,
         num_attention_heads=4,
-        intermediate_size=37 * 4,
+        intermediate_size=37 * 1,
         hidden_dropout_prob=0.1,
         attention_probs_dropout_prob=0.1,
         max_position_embeddings=20,
@@ -203,9 +203,9 @@ class TFBartModelTest(TFModelTesterMixin, TFCoreModelTesterMixin, unittest.TestC
         self.model_tester = TFBartModelTester(self)
         self.config_tester = ConfigTester(self, config_class=BartConfig)
 
-    def tearDown(self):
-        import time
-        time.sleep(90)
+    # def tearDown(self):
+    #     import time
+    #     time.sleep(90)
 
     def test_config(self):
         self.config_tester.run_common_tests()

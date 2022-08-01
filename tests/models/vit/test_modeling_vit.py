@@ -50,10 +50,10 @@ class ViTModelTester:
         num_channels=3,
         is_training=True,
         use_labels=True,
-        hidden_size=32 * 4,
-        num_hidden_layers=12,
+        hidden_size=32 * 1,
+        num_hidden_layers=5,
         num_attention_heads=4,
-        intermediate_size=37 * 4,
+        intermediate_size=37 * 1,
         hidden_act="gelu",
         hidden_dropout_prob=0.1,
         attention_probs_dropout_prob=0.1,
@@ -194,9 +194,9 @@ class ViTModelTest(ModelTesterMixin, unittest.TestCase):
         self.model_tester = ViTModelTester(self)
         self.config_tester = ConfigTester(self, config_class=ViTConfig, has_text_modality=False, hidden_size=37)
 
-    def tearDown(self):
-        import time
-        time.sleep(90)
+    # def tearDown(self):
+    #     import time
+    #     time.sleep(90)
 
     def test_config(self):
         self.config_tester.run_common_tests()
