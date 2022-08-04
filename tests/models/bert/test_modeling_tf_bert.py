@@ -589,7 +589,50 @@ class TFBertModelTester:
         return config, inputs_dict
 
 
+def my_decorator_func(func):
+
+    import os
+    import psutil
+    import json
+
+    def wrapper_func(*args, **kwargs):
+        # Do something before the function.
+
+        p = psutil.Process(os.getpid())
+        m = p.memory_full_info()
+        rss_init = m.rss / 1024
+
+        all_rss_diff = {}
+        for i in range(300):
+            func(*args, **kwargs)
+            m = p.memory_full_info()
+            rss = m.rss / 1024
+            rss_diff = rss - rss_init
+            all_rss_diff[i] = rss_diff
+
+        os.system("rm -rf ./mem/")
+        os.mkdir("./mem/")
+        fn = "./mem/" + str(func).split(" ")[1] + ".json"
+        with open(fn, "w") as fp:
+            json.dump(all_rss_diff, fp, ensure_ascii=False, indent=4)
+
+        # Do something after the function.
+
+    return wrapper_func
+
+
+def my_decorator_class(decorator):
+    def decorate(cls):
+        for attr in cls.__dict__: # there's propably a better way to do this
+            if callable(getattr(cls, attr)):
+                if attr.startswith("test_"):
+                    setattr(cls, attr, decorator(getattr(cls, attr)))
+        return cls
+    return decorate
+
+
 @require_tf
+@my_decorator_class(my_decorator_func)
 class TFBertModelTest(TFModelTesterMixin, TFCoreModelTesterMixin, unittest.TestCase):
 
     all_model_classes = (
