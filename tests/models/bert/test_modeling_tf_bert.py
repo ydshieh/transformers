@@ -605,13 +605,13 @@ def my_decorator_func(func):
         all_rss_diff = {}
         for i in range(300):
             func(*args, **kwargs)
+            p = psutil.Process(os.getpid())
             m = p.memory_full_info()
             rss = m.rss / 1024
             rss_diff = rss - rss_init
             all_rss_diff[i] = rss_diff
 
-        os.system("rm -rf ./mem/")
-        os.mkdir("./mem/")
+        os.system("mkdir ./mem/")
         fn = "./mem/" + str(func).split(" ")[1] + ".json"
         with open(fn, "w") as fp:
             json.dump(all_rss_diff, fp, ensure_ascii=False, indent=4)
