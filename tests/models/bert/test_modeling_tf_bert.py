@@ -603,13 +603,15 @@ def my_decorator_func(func):
         rss_init = m.rss / 1024
 
         all_rss_diff = {}
-        for i in range(300):
+        all_rss_diff[0] = rss_init
+
+        for i in range(3):
             func(*args, **kwargs)
             p = psutil.Process(os.getpid())
             m = p.memory_full_info()
             rss = m.rss / 1024
-            rss_diff = rss - rss_init
-            all_rss_diff[i] = rss_diff
+            # rss_diff = rss - rss_init
+            all_rss_diff[i + 1] = rss
 
         os.system("mkdir ./mem/")
         fn = "./mem/" + str(func).split(" ")[1] + ".json"
