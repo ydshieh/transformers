@@ -238,7 +238,56 @@ class TFT5ModelTester:
         return config, inputs_dict
 
 
+_buffer = {}
+def my_decorator_func(func):
+
+    import os
+    import psutil
+    import json
+
+    def wrapper_func(*args, **kwargs):
+        # Do something before the function.
+
+        p = psutil.Process(os.getpid())
+        m = p.memory_full_info()
+        rss_init = m.rss / 1024
+
+        all_rss = {}
+        all_rss[0] = rss_init
+
+        for i in range(300):
+            func(*args, **kwargs)
+            # p = psutil.Process(os.getpid())
+            m = p.memory_full_info()
+            rss = m.rss / 1024
+            # rss_diff = rss - rss_init
+            all_rss[i + 1] = rss
+
+        _buffer[str(func).split(" ")[1]] = all_rss
+
+        os.system("mkdir ./mem/")
+        fn = "./mem/" + str(func).split(" ")[1].split(".")[0] + ".json"
+
+        with open(fn, "w") as fp:
+            json.dump(_buffer, fp, ensure_ascii=False, indent=4)
+
+        # Do something after the function.
+
+    return wrapper_func
+
+
+def my_decorator_class(decorator):
+    def decorate(cls):
+        for attr in cls.__dict__: # there's propably a better way to do this
+            if callable(getattr(cls, attr)):
+                if attr.startswith("test_"):
+                    setattr(cls, attr, decorator(getattr(cls, attr)))
+        return cls
+    return decorate
+
+
 @require_tf
+@my_decorator_class(my_decorator_func)
 class TFT5ModelTest(TFModelTesterMixin, unittest.TestCase):
 
     is_encoder_decoder = True

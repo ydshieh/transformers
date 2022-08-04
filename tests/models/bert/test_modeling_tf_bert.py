@@ -589,6 +589,7 @@ class TFBertModelTester:
         return config, inputs_dict
 
 
+_buffer = {}
 def my_decorator_func(func):
 
     import os
@@ -602,21 +603,24 @@ def my_decorator_func(func):
         m = p.memory_full_info()
         rss_init = m.rss / 1024
 
-        all_rss_diff = {}
-        all_rss_diff[0] = rss_init
+        all_rss = {}
+        all_rss[0] = rss_init
 
-        for i in range(3):
+        for i in range(300):
             func(*args, **kwargs)
-            p = psutil.Process(os.getpid())
+            # p = psutil.Process(os.getpid())
             m = p.memory_full_info()
             rss = m.rss / 1024
             # rss_diff = rss - rss_init
-            all_rss_diff[i + 1] = rss
+            all_rss[i + 1] = rss
+
+        _buffer[str(func).split(" ")[1]] = all_rss
 
         os.system("mkdir ./mem/")
-        fn = "./mem/" + str(func).split(" ")[1] + ".json"
+        fn = "./mem/" + str(func).split(" ")[1].split(".")[0] + ".json"
+
         with open(fn, "w") as fp:
-            json.dump(all_rss_diff, fp, ensure_ascii=False, indent=4)
+            json.dump(_buffer, fp, ensure_ascii=False, indent=4)
 
         # Do something after the function.
 
