@@ -393,7 +393,7 @@ def my_decorator_func(func):
 
 def my_decorator_class(decorator):
     def decorate(cls):
-        for attr in cls.__dict__: # there's propably a better way to do this
+        for attr in dir(cls): # there's propably a better way to do this
             if callable(getattr(cls, attr)):
                 if attr.startswith("test_"):
                     setattr(cls, attr, decorator(getattr(cls, attr)))
