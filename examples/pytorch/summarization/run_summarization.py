@@ -534,6 +534,7 @@ def main():
             ]
 
         model_inputs["labels"] = labels["input_ids"]
+        model_inputs["global_attention_mask"] = [[1 if y == tokenizer.cls_token_id else 0 for y in x] for x in model_inputs["input_ids"]]
         return model_inputs
 
     if training_args.do_train:

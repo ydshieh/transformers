@@ -198,10 +198,27 @@ class Seq2SeqTrainer(Trainer):
         else:
             generation_inputs = inputs[self.model.main_input_name]
 
+        gen_kwargs["max_length"] = 4
+        gen_kwargs["num_beams"] = 1
+        self.model.gen_buf = {}
         generated_tokens = self.model.generate(
             generation_inputs,
             **gen_kwargs,
         )
+
+        gen_details = {}
+        import json
+        try:
+            with open("gen_details.json", "r") as fp:
+                gen_details = json.load(fp)
+        except:
+            pass
+
+        gen_details[f"eval_batch_{len(gen_details)}"] = self.model.gen_buf
+
+        with open("gen_details.json", "w") as fp:
+            json.dump(gen_details, fp)
+        import pdb; pdb.set_trace()
         # in case the batch is shorter than max length, the output should be padded
         if generated_tokens.shape[-1] < gen_kwargs["max_length"]:
             generated_tokens = self._pad_tensors_to_max_len(generated_tokens, gen_kwargs["max_length"])

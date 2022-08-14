@@ -1002,6 +1002,8 @@ class LEDDecoderLayer(nn.Module):
         past_key_value: Optional[Tuple[torch.Tensor]] = None,
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = True,
+        idx=-1,
+        buf=None,
     ):
         """
         Args:
@@ -1020,6 +1022,13 @@ class LEDDecoderLayer(nn.Module):
             output_attentions (`bool`): Whether the base model outputs attentions.
                 This requires the attentions tensor to be reshaped in this function.
         """
+        # import pdb; pdb.set_trace()
+        if idx not in buf:
+            buf[idx] = {}
+
+        if not self.training:
+            # import pdb; pdb.set_trace()
+            buf[idx]["input"] = hidden_states.to("cpu").numpy().tolist()
         residual = hidden_states
 
         # Self-Attention
@@ -1037,6 +1046,9 @@ class LEDDecoderLayer(nn.Module):
         hidden_states = residual + hidden_states
         hidden_states = self.self_attn_layer_norm(hidden_states)
 
+        if not self.training:
+            # import pdb; pdb.set_trace()
+            buf[idx]["self_attn"] = hidden_states.to("cpu").numpy().tolist()
         # Cross-Attention Block
         cross_attn_present_key_value = None
         cross_attn_weights = None
@@ -1060,6 +1072,9 @@ class LEDDecoderLayer(nn.Module):
             # add cross-attn to positions 3,4 of present_key_value tuple
             present_key_value = present_key_value + cross_attn_present_key_value
 
+        if not self.training:
+            # import pdb; pdb.set_trace()
+            buf[idx]["cross_attn"] = hidden_states.to("cpu").numpy().tolist()
         # Fully Connected
         residual = hidden_states
         hidden_states = self.activation_fn(self.fc1(hidden_states))
@@ -1069,6 +1084,9 @@ class LEDDecoderLayer(nn.Module):
         hidden_states = residual + hidden_states
         hidden_states = self.final_layer_norm(hidden_states)
 
+        if not self.training:
+            # import pdb; pdb.set_trace()
+            buf[idx]["ffn"] = hidden_states.to("cpu").numpy().tolist()
         outputs = (hidden_states,)
 
         if output_attentions:
@@ -1948,6 +1966,8 @@ class LEDDecoder(LEDPreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
+        gen_buf=None,
+        name=None,
     ):
         r"""
         Args:
@@ -2023,6 +2043,10 @@ class LEDDecoder(LEDPreTrainedModel):
             return_dict (`bool`, *optional*):
                 Whether or not to return a [`~utils.ModelOutput`] instead of a plain tuple.
         """
+
+        #if not self.training:
+        #    import pdb; pdb.set_trace()
+
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
             output_hidden_states if output_hidden_states is not None else self.config.output_hidden_states
@@ -2088,6 +2112,7 @@ class LEDDecoder(LEDPreTrainedModel):
                         f"The `{mask_name}` should be specified for {len(self.layers)} layers, but it is for"
                         f" {head_mask.size()[0]}."
                     )
+        buf = {}
         for idx, decoder_layer in enumerate(self.layers):
             # add LayerDrop (see https://arxiv.org/abs/1909.11556 for description)
             if output_hidden_states:
@@ -2124,6 +2149,8 @@ class LEDDecoder(LEDPreTrainedModel):
                     None,
                 )
             else:
+                #if not self.training and idx == 2:
+                #    import pdb; pdb.set_trace()
                 layer_outputs = decoder_layer(
                     hidden_states,
                     attention_mask=combined_attention_mask,
@@ -2136,10 +2163,15 @@ class LEDDecoder(LEDPreTrainedModel):
                     past_key_value=past_key_value,
                     output_attentions=output_attentions,
                     use_cache=use_cache,
+                    idx=idx,
+                    buf=buf,
                 )
 
             hidden_states = layer_outputs[0]
 
+            #if not self.training:
+            #    import pdb; pdb.set_trace()
+            gen_buf[name] = buf
             if use_cache:
                 next_decoder_cache += (layer_outputs[3 if output_attentions else 1],)
 
@@ -2223,6 +2255,8 @@ class LEDModel(LEDPreTrainedModel):
         output_attentions: Optional[bool] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
+        gen_buf = None,
+        name=None,
     ) -> Union[Tuple[torch.Tensor], LEDSeq2SeqModelOutput]:
         output_attentions = output_attentions if output_attentions is not None else self.config.output_attentions
         output_hidden_states = (
@@ -2273,6 +2307,8 @@ class LEDModel(LEDPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            gen_buf=gen_buf,
+            name=name,
         )
 
         if not return_dict:
@@ -2394,6 +2430,13 @@ class LEDForConditionalGeneration(LEDPreTrainedModel):
                     labels, self.config.pad_token_id, self.config.decoder_start_token_id
                 )
 
+        try:
+            x = self.gen_buf
+        except:
+            self.gen_buf = {}
+
+        name = f"{str(decoder_input_ids.to('cpu').numpy().tolist())}_{len(self.gen_buf)}"
+
         outputs = self.led(
             input_ids,
             attention_mask=attention_mask,
@@ -2411,10 +2454,16 @@ class LEDForConditionalGeneration(LEDPreTrainedModel):
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
+            gen_buf=self.gen_buf,
+            name=name,
         )
         lm_logits = self.lm_head(outputs[0]) + self.final_logits_bias
 
         masked_lm_loss = None
+
+        #if not self.training:
+        #    import pdb; pdb.set_trace()
+
         if labels is not None:
             loss_fct = CrossEntropyLoss()
             masked_lm_loss = loss_fct(lm_logits.view(-1, self.config.vocab_size), labels.view(-1))
