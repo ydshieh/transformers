@@ -1002,6 +1002,8 @@ class LEDDecoderLayer(nn.Module):
         past_key_value: Optional[Tuple[torch.Tensor]] = None,
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = True,
+        buffer=None,
+        layer_idx=None,
     ):
         """
         Args:
@@ -1020,7 +1022,10 @@ class LEDDecoderLayer(nn.Module):
             output_attentions (`bool`): Whether the base model outputs attentions.
                 This requires the attentions tensor to be reshaped in this function.
         """
+        buffer[layer_idx] = {}
+
         residual = hidden_states
+        buffer[layer_idx]["hidden_states: input"] = hidden_states.detach().to("cpu")
 
         # Self-Attention
         # decoder uni-directional self-attention cached key/values tuple is at positions 1,2
@@ -1033,9 +1038,13 @@ class LEDDecoderLayer(nn.Module):
             layer_head_mask=layer_head_mask,
             output_attentions=output_attentions,
         )
+        buffer[layer_idx]["hidden_states: self_attn - self_attn"] = hidden_states.detach().to("cpu")
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+        buffer[layer_idx]["hidden_states: self_attn - dropout"] = hidden_states.detach().to("cpu")
         hidden_states = residual + hidden_states
+        buffer[layer_idx]["hidden_states: self_attn - residual + hidden_states"] = hidden_states.detach().to("cpu")
         hidden_states = self.self_attn_layer_norm(hidden_states)
+        buffer[layer_idx]["hidden_states: self_attn - self.self_attn_layer_norm"] = hidden_states.detach().to("cpu")
 
         # Cross-Attention Block
         cross_attn_present_key_value = None
@@ -1053,21 +1062,33 @@ class LEDDecoderLayer(nn.Module):
                 past_key_value=cross_attn_past_key_value,
                 output_attentions=output_attentions,
             )
+            buffer[layer_idx]["hidden_states: cross_attn - self.encoder_attn"] = hidden_states.detach().to("cpu")
             hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+            buffer[layer_idx]["hidden_states: cross_attn - dropout"] = hidden_states.detach().to("cpu")
             hidden_states = residual + hidden_states
+            buffer[layer_idx]["hidden_states: cross_attn - residual + hidden_states"] = hidden_states.detach().to("cpu")
             hidden_states = self.encoder_attn_layer_norm(hidden_states)
+            buffer[layer_idx]["hidden_states: cross_attn - self.encoder_attn_layer_norm"] = hidden_states.detach().to("cpu")
 
             # add cross-attn to positions 3,4 of present_key_value tuple
             present_key_value = present_key_value + cross_attn_present_key_value
 
         # Fully Connected
         residual = hidden_states
-        hidden_states = self.activation_fn(self.fc1(hidden_states))
+        hidden_states = self.fc1(hidden_states)
+        buffer[layer_idx]["hidden_states: ffn - fc1"] = hidden_states.detach().to("cpu")
+        hidden_states = self.activation_fn(hidden_states)
+        buffer[layer_idx]["hidden_states: ffn - fc1 - activation_fn"] = hidden_states.detach().to("cpu")
         hidden_states = nn.functional.dropout(hidden_states, p=self.activation_dropout, training=self.training)
+        buffer[layer_idx]["hidden_states: ffn - nn.functional.dropout"] = hidden_states.detach().to("cpu")
         hidden_states = self.fc2(hidden_states)
+        buffer[layer_idx]["hidden_states: ffn - fc2"] = hidden_states.detach().to("cpu")
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
+        buffer[layer_idx]["hidden_states: ffn - fc2 - nn.functional.dropout"] = hidden_states.detach().to("cpu")
         hidden_states = residual + hidden_states
+        buffer[layer_idx]["hidden_states: ffn - residual + hidden_states"] = hidden_states.detach().to("cpu")
         hidden_states = self.final_layer_norm(hidden_states)
+        buffer[layer_idx]["hidden_states: ffn: final_layer_norm"] = hidden_states.detach().to("cpu")
 
         outputs = (hidden_states,)
 
@@ -2046,6 +2067,7 @@ class LEDDecoder(LEDPreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)
+            self.buffer["inputs_embeds"] = inputs_embeds.detach().to("cpu")
 
         # create causal mask
         # [bsz, seq_len] -> [bsz, 1, tgt_seq_len, src_seq_len]
@@ -2068,9 +2090,12 @@ class LEDDecoder(LEDPreTrainedModel):
 
         # embed positions
         positions = self.embed_positions(input_shape, past_key_values_length)
+        self.buffer["positions"] = positions.detach().to("cpu")
 
         hidden_states = inputs_embeds + positions
+        self.buffer["hidden_states: inputs_embeds + positions"] = hidden_states.detach().to("cpu")
         hidden_states = self.layernorm_embedding(hidden_states)
+        self.buffer["hidden_states: layernorm_embedding(hidden_states)"] = hidden_states.detach().to("cpu")
 
         hidden_states = nn.functional.dropout(hidden_states, p=self.dropout, training=self.training)
 
@@ -2136,6 +2161,8 @@ class LEDDecoder(LEDPreTrainedModel):
                     past_key_value=past_key_value,
                     output_attentions=output_attentions,
                     use_cache=use_cache,
+                    buffer=self.buffer,
+                    layer_idx=idx,
                 )
 
             hidden_states = layer_outputs[0]

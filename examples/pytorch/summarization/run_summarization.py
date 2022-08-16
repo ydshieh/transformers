@@ -406,6 +406,7 @@ def main():
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
+
     tokenizer = AutoTokenizer.from_pretrained(
         model_args.tokenizer_name if model_args.tokenizer_name else model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
@@ -511,6 +512,15 @@ def main():
             f"`{model.__class__.__name__}`. This will lead to loss being calculated twice and will take up more memory"
         )
 
+    def get_global_attn(x):
+
+        if x == tokenizer.cls_token_id:
+            return 1
+        elif x == tokenizer.pad_token_id:
+            return -1
+        else:
+            return 0
+
     def preprocess_function(examples):
         # remove pairs where at least one record is None
 
@@ -534,6 +544,10 @@ def main():
             ]
 
         model_inputs["labels"] = labels["input_ids"]
+
+        if model.__class__.__name__.startswith("LED"):
+            model_inputs["global_attention_mask"] = [[get_global_attn(y) for y in x] for x in model_inputs["input_ids"]]
+
         return model_inputs
 
     if training_args.do_train:
@@ -558,6 +572,7 @@ def main():
         if "validation" not in raw_datasets:
             raise ValueError("--do_eval requires a validation dataset")
         eval_dataset = raw_datasets["validation"]
+
         if data_args.max_eval_samples is not None:
             max_eval_samples = min(len(eval_dataset), data_args.max_eval_samples)
             eval_dataset = eval_dataset.select(range(max_eval_samples))
@@ -612,6 +627,7 @@ def main():
         return preds, labels
 
     def compute_metrics(eval_preds):
+
         preds, labels = eval_preds
         if isinstance(preds, tuple):
             preds = preds[0]
@@ -623,6 +639,20 @@ def main():
 
         # Some simple post-processing
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
+
+        # ================================================================================
+        import json
+
+        pred_tokens = [tokenizer.convert_ids_to_tokens(pred) for pred in preds]
+
+        gen = {}
+        gen["labels"] = decoded_labels
+        gen["preds"] = decoded_preds
+        gen["pred_tokens"] = pred_tokens
+
+        with open(os.path.join(training_args.output_dir, "gen.json"), "w") as fp:
+            json.dump(gen, fp, ensure_ascii=False, indent=4)
+        # ================================================================================
 
         result = metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
         result = {k: round(v * 100, 4) for k, v in result.items()}
