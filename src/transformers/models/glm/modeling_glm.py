@@ -21,25 +21,23 @@ import torch.utils.checkpoint
 import torch.nn.functional as F
 from torch.nn import init, LayerNorm, Linear, CrossEntropyLoss
 
-from ...activations import gelu
-from ...utils import (
+from transformers.activations import gelu
+from transformers.utils import (
     add_code_sample_docstrings,
     add_start_docstrings,
     add_start_docstrings_to_model_forward,
 )
-from ...modeling_outputs import (
+from transformers.modeling_outputs import (
     BaseModelOutputWithPastAndCrossAttentions,
     SequenceClassifierOutput,
     CausalLMOutput
 )
-from ...modeling_utils import (
+from transformers.modeling_utils import (
     PreTrainedModel,
 )
-from ...utils import logging
+from transformers.utils import logging
 from .configuration_glm import GLMConfig
 from torch.nn.parameter import Parameter
-
-logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "shunxing1234/GLM"
 _CONFIG_FOR_DOC = "GLMConfig"
@@ -834,11 +832,11 @@ class GLMModel(GLMPreTrainedModel):
     GLM_START_DOCSTRING,
 )
 class GLMForSequenceClassification(GLMPreTrainedModel):
-    def __init__(self, config, pool_token, hidden_dropout=False, num_class=1):
+    def __init__(self, config, hidden_dropout=False, num_class=1):
         super().__init__(config)
-        self.pool_token = pool_token
-        self.model = GLMModel(config)
-        self.model.output_predict = False
+        self.pool_token = config.pool_token
+        self.glm = GLMModel(config)
+        self.glm.output_predict = False
         self.num_class = num_class
         # Multi-choice head.
         self.pool_layer = torch.nn.Linear(config.hidden_size, config.hidden_size)
@@ -868,7 +866,7 @@ class GLMForSequenceClassification(GLMPreTrainedModel):
             input_ids = input_ids.reshape(-1, input_ids.size(-1))
             attention_mask = attention_mask.reshape(-1, *attention_mask.size()[2:])
             position_ids = position_ids.reshape(-1, *position_ids.size()[2:])
-        model_out = self.model.forward(input_ids, position_ids, attention_mask)
+        model_out = self.glm.forward(input_ids, position_ids, attention_mask)
         outputs, mems = model_out.last_hidden_state, model_out.hidden_states
 
         if self.pool_token == 'start':

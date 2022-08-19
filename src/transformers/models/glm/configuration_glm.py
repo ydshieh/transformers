@@ -14,8 +14,8 @@
 # limitations under the License.
 """ GLM model configuration """
 
-from ...configuration_utils import PretrainedConfig
-from ...utils import logging
+from transformers.configuration_utils import PretrainedConfig
+from transformers.utils import logging
 
 logger = logging.get_logger(__name__)
 
@@ -111,6 +111,7 @@ class GLMConfig(PretrainedConfig):
             spell_func="lstm",
             attention_scale=1.0,
             initializer_range=0.02,
+            pool_token="cls",
             **kwargs
     ):
         self.num_layers = num_layers
@@ -132,6 +133,6 @@ class GLMConfig(PretrainedConfig):
         self.spell_func = spell_func
         self.attention_scale = attention_scale
         self.initializer_range = initializer_range
+        self.pool_token = pool_token
 
         super().__init__(**kwargs)
-
