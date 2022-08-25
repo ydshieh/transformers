@@ -113,7 +113,7 @@ def hard_softmax(logits: tf.Tensor, dim: int) -> tf.Tensor:
         depth=tf.shape(logits)[dim],
         # TensorFlow expects axis to be -1 or between [0, 3).  But received: -2
         # This is why the following code snippet is used.
-        axis=tf.rank(logits) - dim,
+        axis=tf.math.floormod(dim, tf.rank(logits)),
         dtype=y_soft.dtype,
     )
     ret = y_hard - tf.stop_gradient(y_soft) + y_soft
