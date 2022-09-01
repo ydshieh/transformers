@@ -53,6 +53,7 @@ TF_MODEL_MAPPING_NAMES = OrderedDict(
         ("groupvit", "TFGroupViTModel"),
         ("hubert", "TFHubertModel"),
         ("layoutlm", "TFLayoutLMModel"),
+        ("layoutlmv3", "TFLayoutLMv3Model"),
         ("led", "TFLEDModel"),
         ("longformer", "TFLongformerModel"),
         ("lxmert", "TFLxmertModel"),
@@ -269,6 +270,7 @@ TF_MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
         ("gpt2", "TFGPT2ForSequenceClassification"),
         ("gptj", "TFGPTJForSequenceClassification"),
         ("layoutlm", "TFLayoutLMForSequenceClassification"),
+        ("layoutlmv3", "TFLayoutLMv3ForSequenceClassification"),
         ("longformer", "TFLongformerForSequenceClassification"),
         ("mobilebert", "TFMobileBertForSequenceClassification"),
         ("mpnet", "TFMPNetForSequenceClassification"),
@@ -298,6 +300,7 @@ TF_MODEL_FOR_QUESTION_ANSWERING_MAPPING_NAMES = OrderedDict(
         ("flaubert", "TFFlaubertForQuestionAnsweringSimple"),
         ("funnel", "TFFunnelForQuestionAnswering"),
         ("gptj", "TFGPTJForQuestionAnswering"),
+        ("layoutlmv3", "TFLayoutLMv3ForQuestionAnswering"),
         ("longformer", "TFLongformerForQuestionAnswering"),
         ("mobilebert", "TFMobileBertForQuestionAnswering"),
         ("mpnet", "TFMPNetForQuestionAnswering"),
@@ -317,7 +320,6 @@ TF_MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING_NAMES = OrderedDict(
     ]
 )
 
-
 TF_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
     [
         # Model for Token Classification mapping
@@ -332,6 +334,7 @@ TF_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING_NAMES = OrderedDict(
         ("flaubert", "TFFlaubertForTokenClassification"),
         ("funnel", "TFFunnelForTokenClassification"),
         ("layoutlm", "TFLayoutLMForTokenClassification"),
+        ("layoutlmv3", "TFLayoutLMv3ForTokenClassification"),
         ("longformer", "TFLongformerForTokenClassification"),
         ("mobilebert", "TFMobileBertForTokenClassification"),
         ("mpnet", "TFMPNetForTokenClassification"),
@@ -373,7 +376,6 @@ TF_MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING_NAMES = OrderedDict(
         ("mobilebert", "TFMobileBertForNextSentencePrediction"),
     ]
 )
-
 
 TF_MODEL_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, TF_MODEL_MAPPING_NAMES)
 TF_MODEL_FOR_PRETRAINING_MAPPING = _LazyAutoMapping(CONFIG_MAPPING_NAMES, TF_MODEL_FOR_PRETRAINING_MAPPING_NAMES)
