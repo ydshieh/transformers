@@ -38,6 +38,14 @@ from ...utils import (
 from .configuration_groupvit import GroupViTConfig, GroupViTTextConfig, GroupViTVisionConfig
 
 
+from collections import defaultdict
+pt_results = defaultdict(list)
+
+
+def get_key(o):
+    return o.__class__.__name__
+
+
 logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "nvidia/groupvit-gcc-yfcc"
@@ -531,6 +539,7 @@ class GroupViTStage(nn.Module):
         hidden_states: torch.Tensor,
         prev_group_token: Optional[torch.Tensor] = None,
         output_attentions: Optional[bool] = False,
+        desc = None,
     ) -> Tuple[torch.FloatTensor]:
         """
         Args:
@@ -549,17 +558,20 @@ class GroupViTStage(nn.Module):
             group_token = None
 
         x = hidden_states
+        pt_results[f"{get_key(self)} - {desc} - {'x = hidden_states'}"].append(x)
 
         cat_x = self.concat_x(x, group_token)
-        for layer in self.layers:
-            layer_out = layer(cat_x, attention_mask=None, causal_attention_mask=None)
+        for i, layer in enumerate(self.layers):
+            layer_out = layer(cat_x, attention_mask=None, causal_attention_mask=None, desc=f"{desc} - layer {i}")
             cat_x = layer_out[0]
 
         x, group_token = self.split_x(cat_x)
+        pt_results[f"{get_key(self)} - {desc} - {'x, group_token = self.split_x(cat_x)'} - x"].append(x)
 
         attention = None
         if self.downsample is not None:
             x, attention = self.downsample(x, group_token)
+            pt_results[f"{get_key(self)} - {desc} - {'x, attention = self.downsample(x, group_token)'} - x"].append(x)
 
         outputs = (x, group_token)
         if output_attentions:
@@ -724,6 +736,7 @@ class GroupViTEncoderLayer(nn.Module):
         attention_mask: torch.Tensor,
         causal_attention_mask: torch.Tensor,
         output_attentions: Optional[bool] = False,
+        desc = None,
     ) -> Tuple[torch.FloatTensor]:
         """
         Args:
@@ -738,18 +751,28 @@ class GroupViTEncoderLayer(nn.Module):
         residual = hidden_states
 
         hidden_states = self.layer_norm1(hidden_states)
+        pt_results[f"{get_key(self)} - {desc} - {'hidden_states = self.layer_norm1(hidden_states)'}"].append(hidden_states)
+
         hidden_states, attn_weights = self.self_attn(
             hidden_states=hidden_states,
             attention_mask=attention_mask,
             causal_attention_mask=causal_attention_mask,
             output_attentions=output_attentions,
         )
+        pt_results[f"{get_key(self)} - {desc} - {'hidden_states = attention_outputs[0]'}"].append(hidden_states)
+
         hidden_states = residual + hidden_states
+        pt_results[f"{get_key(self)} - {desc} - {'residual + hidden_states'}"].append(hidden_states)
 
         residual = hidden_states
         hidden_states = self.layer_norm2(hidden_states)
+        pt_results[f"{get_key(self)} - {desc} - {'self.layer_norm2(hidden_states)'}"].append(hidden_states)
+
         hidden_states = self.mlp(hidden_states)
+        pt_results[f"{get_key(self)} - {desc} - {'hidden_states = self.mlp(hidden_states)'}"].append(hidden_states)
+
         hidden_states = residual + hidden_states
+        pt_results[f"{get_key(self)} - {desc} - {'residual + hidden_states'} - part 2"].append(hidden_states)
 
         outputs = (hidden_states,)
 
@@ -947,7 +970,7 @@ class GroupViTVisionEncoder(nn.Module):
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
 
-            layer_outputs = stage(hidden_states, group_tokens, output_attentions)
+            layer_outputs = stage(hidden_states, group_tokens, output_attentions, desc=f"stage {i}")
 
             hidden_states = layer_outputs[0]
             group_tokens = layer_outputs[1]

@@ -45,6 +45,14 @@ from ...utils import (
 from .configuration_groupvit import GroupViTConfig, GroupViTTextConfig, GroupViTVisionConfig
 
 
+from collections import defaultdict
+tf_results = defaultdict(list)
+
+
+def get_key(o):
+    return o.__class__.__name__[2:]
+
+
 logger = logging.get_logger(__name__)
 
 # soft dependency
@@ -659,6 +667,7 @@ class TFGroupViTStage(tf.keras.layers.Layer):
         prev_group_token: Optional[tf.Tensor] = None,
         output_attentions: bool = False,
         training: bool = False,
+        desc = None,
     ) -> Tuple[tf.Tensor]:
         """
         Args:
@@ -679,22 +688,26 @@ class TFGroupViTStage(tf.keras.layers.Layer):
             group_token = None
 
         x = hidden_states
+        tf_results[f"{get_key(self)} - {desc} - {'x = hidden_states'}"].append(x)
 
         cat_x = self.concat_x(x, group_token)
-        for layer in self.layers:
+        for i, layer in enumerate(self.layers):
             layer_out = layer(
                 cat_x,
                 attention_mask=None,
                 causal_attention_mask=None,
                 output_attentions=None,
+                desc=f"{desc} - layer {i}",
             )
             cat_x = layer_out[0]
 
         x, group_token = self.split_x(cat_x)
+        tf_results[f"{get_key(self)} - {desc} - {'x, group_token = self.split_x(cat_x)'} - x"].append(x)
 
         attention = None
         if self.downsample is not None:
             x, attention = self.downsample(x, group_token)
+            tf_results[f"{get_key(self)} - {desc} - {'x, attention = self.downsample(x, group_token)'} - x"].append(x)
 
         outputs = (x, group_token)
         if output_attentions:
@@ -860,6 +873,7 @@ class TFGroupViTEncoderLayer(tf.keras.layers.Layer):
         causal_attention_mask: tf.Tensor,
         output_attentions: bool,
         training: bool = False,
+        desc = None,
     ) -> Tuple[tf.Tensor]:
         """
         Args:
@@ -875,6 +889,8 @@ class TFGroupViTEncoderLayer(tf.keras.layers.Layer):
         residual = hidden_states
 
         hidden_states = self.layer_norm1(inputs=hidden_states)
+        tf_results[f"{get_key(self)} - {desc} - {'hidden_states = self.layer_norm1(hidden_states)'}"].append(hidden_states)
+
         attention_outputs = self.self_attn(
             hidden_states=hidden_states,
             attention_mask=attention_mask,
@@ -883,12 +899,20 @@ class TFGroupViTEncoderLayer(tf.keras.layers.Layer):
             training=training,
         )
         hidden_states = attention_outputs[0]
+        tf_results[f"{get_key(self)} - {desc} - {'hidden_states = attention_outputs[0]'}"].append(hidden_states)
+
         hidden_states = residual + hidden_states
+        tf_results[f"{get_key(self)} - {desc} - {'residual + hidden_states'}"].append(hidden_states)
 
         residual = hidden_states
         hidden_states = self.layer_norm2(inputs=hidden_states)
+        tf_results[f"{get_key(self)} - {desc} - {'self.layer_norm2(hidden_states)'}"].append(hidden_states)
+
         hidden_states = self.mlp(hidden_states=hidden_states)
+        tf_results[f"{get_key(self)} - {desc} - {'hidden_states = self.mlp(hidden_states)'}"].append(hidden_states)
+
         hidden_states = residual + hidden_states
+        tf_results[f"{get_key(self)} - {desc} - {'residual + hidden_states'} - part 2"].append(hidden_states)
 
         outputs = (hidden_states,) + attention_outputs[1:]  # add attentions if we output them
 
@@ -969,11 +993,11 @@ class TFGroupViTVisionEncoder(tf.keras.layers.Layer):
 
         group_tokens = None
 
-        for stage in self.stages:
+        for i, stage in enumerate(self.stages):
             if output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states,)
 
-            layer_outputs = stage(hidden_states, group_tokens, output_attentions)
+            layer_outputs = stage(hidden_states, group_tokens, output_attentions, desc=f"stage {i}")
 
             hidden_states = layer_outputs[0]
             group_tokens = layer_outputs[1]

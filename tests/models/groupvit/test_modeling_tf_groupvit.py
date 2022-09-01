@@ -137,6 +137,59 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
     test_head_masking = False
     test_onnx = False
 
+    def test_pt_tf_model_equivalence(self):
+        # super().test_pt_tf_model_equivalence()
+
+        self.all_model_classes = (TFGroupViTVisionModel,)
+
+        import numpy as np
+        from copy import deepcopy
+        import transformers
+
+        results = {}
+        num_iter = 1
+
+        for _ in range(num_iter):
+            super().test_pt_tf_model_equivalence()
+
+            pt_results = transformers.models.groupvit.modeling_groupvit.pt_results
+            tf_results = transformers.models.groupvit.modeling_tf_groupvit.tf_results
+
+            pt_results = deepcopy(pt_results)
+            tf_results = deepcopy(tf_results)
+
+            from collections import defaultdict
+            transformers.models.groupvit.modeling_groupvit.pt_results = defaultdict(list)
+            transformers.models.groupvit.modeling_tf_groupvit.tf_results = defaultdict(list)
+
+            keys = tuple(tf_results.keys())
+            # tf_outputs = tuple(tf_results[k] for k in keys)
+            # pt_outputs = tuple(pt_results[k] for k in keys)
+            pt_outputs = {k: pt_results[k] for k in keys}
+            tf_outputs = {k: tf_results[k] for k in keys}
+
+            model_class = transformers.models.groupvit.modeling_tf_groupvit.TFGroupViTVisionModel
+            context = "extra"
+            results[model_class.__name__] = {}
+            super().check_pt_tf_outputs(tf_outputs, pt_outputs, model_class=model_class, tol=1e-5, name="outputs", attributes=None, context=context, results=results)
+
+            from copy import deepcopy
+            _results = deepcopy(results)
+            if len(self.all_model_classes) > 0:
+                for model_class_name in _results:
+                    for context in _results[model_class_name]:
+                        for names in _results[model_class_name][context]:
+                            if not names.endswith("_max_diff"):
+                                results[model_class_name][context][names + "_max_diff"] = float(
+                                    np.amax(np.array(_results[model_class_name][context][names])))
+
+                import torch
+                import json
+                with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra.json", "w", encoding="UTF-8") as fp:
+                    json.dump(results, fp, ensure_ascii=False, indent=4)
+                with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra_backup.json", "w", encoding="UTF-8") as fp:
+                    json.dump(results, fp, ensure_ascii=False, indent=4)
+
     def setUp(self):
         self.model_tester = TFGroupViTVisionModelTester(self)
         self.config_tester = ConfigTester(
