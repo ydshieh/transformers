@@ -169,6 +169,10 @@ flax_arch_mappings = [
 
 
 def get_processor_types_from_config_class(config_class):
+    """Return a tuple of processors for `config_class`
+
+    We use `tuple` here to include (potentially) both slow & fast tokenizers.
+    """
 
     processor_types = ()
 
@@ -183,15 +187,15 @@ def get_processor_types_from_config_class(config_class):
         # Some configurations have no processor at all. For example, generic composite models like
         # `EncoderDecoderModel` is used for any (compatible) text models. Also, `DecisionTransformer` doesn't
         # require any processor.
-        # In these cases, we still add the configurations as keys but with `None` as value.
         pass
 
-    # make a uniform format
+    # make a uniform return type
     if not isinstance(processor_types, collections.abc.Sequence):
         processor_types = (processor_types,)
+    else:
+        processor_types = tuple(processor_types)
 
-    # processor could be `None`. For example,
-    # Keep only TODO:
+    # We might get `None` for some tokenizers - remove them here.
     processor_types = tuple(p for p in processor_types if p is not None)
 
     return processor_types
@@ -580,13 +584,16 @@ if __name__ == "__main__":
         type=list_str,
         help="Comma-separated list of model type(s) from which the tiny models will be created.",
     )
-    parser.add_argument("--black_list", type=list_str, help="Comma-separated list of model type(s) to ignore.",default='convbert,blenderbot-small,rag,dpr,retribert,layoutlmv2')
-    ### parser.add_argument("output_path", type=Path, help="Path indicating where to store generated ONNX model.")
+    parser.add_argument("--black_list", type=list_str, help="Comma-separated list of model type(s) to ignore.", default='convbert,blenderbot-small,rag,dpr,retribert,layoutlmv2')
+    # TODO: (remove) removed `ONNX` from the original `help`.
+    parser.add_argument("output_path", type=Path, help="Path indicating where to store generated model.")
     args = parser.parse_args()
 
-    # TEMP:
+    # --------------------------------------------------------------------------------
+    # TODO: (remove)
     args.output_path = "./temp/dummy/"
     args.all = True
+    # --------------------------------------------------------------------------------
 
     if not args.all and not args.model_types:
         raise ValueError("Please provide at least one model type or pass `--all` to export all architectures.")
@@ -595,14 +602,17 @@ if __name__ == "__main__":
     if not args.all:
         config_classes = [CONFIG_MAPPING[model_type] for model_type in args.model_types]
 
-    # Mappings from configs to processors/architectures
+    # TODO: (remove) changed `get_X_from_configuration_list` to `get_X_from_config_class`
+    # Mappings from config classes to lists of processor (tokenizer, feature extractor, processor) classes
     processor_type_map = {c: get_processor_types_from_config_class(c) for c in config_classes}
+
+    # TODO: (to be continued)
 
     # Skip models that have no processor at all
     config_classes_with_processor = [c for c in config_classes if len(processor_type_map[c]) > 0]
 
     # Ignore some model types
-    # TODO: Ask L
+    # TODO: Discuss with Lysandre about the reason
     if args.black_list:
         final_config_classes = [c for c in config_classes_with_processor if c.model_type not in args.black_list]
 
