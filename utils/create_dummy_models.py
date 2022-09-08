@@ -358,14 +358,15 @@ def build_processor(config_class, processor_class):
             if config_class_from_processor_class != config_class:
                 processor = build_processor(config_class_from_processor_class, processor_class)
 
+    # validation
+    if processor is not None:
+        assert isinstance(processor, processor_class)
+
     return processor
 
 
 def convert_processors(processors, output_folder):
-    """Reduce the tokenizer's `vocab_size`, and update the slow tokenizer too (if any).
-
-    Also remove the entries with `None` value.
-    """
+    """Reduce `vocab_size` in tokenizer(s)"""
     tokenizers = []
     feature_extractors = []
     for processor in processors:
@@ -374,36 +375,46 @@ def convert_processors(processors, output_folder):
         elif isinstance(processor, FeatureExtractionMixin):
             feature_extractors.append(processor)
         elif isinstance(processor, ProcessorMixin):
+            # Currently, we only have these 2 possibilities
             tokenizers.append(processor.tokenizer)
-            tokenizers.append(processor.feature_extractor)
+            feature_extractors.append(processor.feature_extractor)
+
+    # check the built processors have the unique type
+    assert len(set([x.__class__.name for x in feature_extractors])) < 2
+    assert len(set([x.__class__.name.replace("Fast", "") for x in tokenizers])) < 2
 
     fast_tokenizer = None
     slow_tokenizer = None
     for tokenizer in tokenizers:
-        if isinstance(tokenizer, PreTrainedTokenizerFast):
+        if isinstance(tokenizer, PreTrainedTokenizerFast) and fast_tokenizer is None:
             fast_tokenizer = tokenizer
             try:
-                fast_tokenizer = convert_tokenizer(fast_tokenizer)
-            except:
-                pass
-        else:
+                fast_tokenizer = convert_tokenizer(tokenizer)
+            except Exception as e:
+                continue
+        elif slow_tokenizer is None:
             slow_tokenizer = tokenizer
 
     if fast_tokenizer:
-        # Update the slow tokenizer from the (possibly converted) fast tokenizer.
         slow_tokenizer = None
         try:
             fast_tokenizer.save_pretrained(output_folder, legacy_format=False)
+            # TODO: Could every fast tokenizer be saved in legacy format?
             fast_tokenizer.save_pretrained(output_folder, legacy_format=True)
-            slow_tokenizer = AutoTokenizer.from_pretrained(output_folder, fast_tokenizer=False)
-        except:
-            pass
+        except Exception as e:
+            fast_tokenizer = None
+
+        if fast_tokenizer:
+            try:
+                slow_tokenizer = AutoTokenizer.from_pretrained(output_folder, fast_tokenizer=False)
+            except Exception as e:
+                pass
+
     elif slow_tokenizer:
         slow_tokenizer.save_pretrained(output_folder)
 
     processors = [fast_tokenizer, slow_tokenizer] + feature_extractors
     processors = [p for p in processors if p is not None]
-
     for p in processors:
         p.save_pretrained(output_folder)
 
@@ -462,16 +473,17 @@ def build(config_class, to_create, output_folder):
     processor_classes = to_create["processor"]
     for processor_class in processor_classes:
         processor = build_processor(config_class, processor_class)
-        result["processor"][processor_class] = processor
+        if processor is not None:
+            result["processor"][processor_class] = processor
 
-    # TODO: continue
-
-    # Try to reduce (fast) tokenizer's vocab size, and if successful, update the corresponding slow tokenizer (if any).
+    # Reduce the vocab size in tokenizer(s)
     processors = list(result["processor"].values())
     processor_output_folder = os.path.join(output_folder, "processors")
     processors = convert_processors(processors, processor_output_folder)
     # update `result`
     result["processor"] = {type(p): p for p in processors}
+
+    # TODO: continue
 
     for pytorch_arch in to_create["pytorch"]:
         model = build_model(config_class, pytorch_arch, output_folder=output_folder, processors=processors)
@@ -604,10 +616,9 @@ if __name__ == "__main__":
     with open("build_failed", "w") as fp:
         json.dump(_results, fp, ensure_ascii=True, indent=4)
 
-
     print("--- Report ---")
 
-    config_classes_without_processor = [c for c in config_classes]
+    config_classes_without_processor = [c for c in config_classes if len(processor_type_map[c]) == 0]
     if len(config_classes_without_processor) > 0:
         print(
             f"Some models could not be exported due to a lack of processor: {[c.model_type for c in config_classes_without_processor]}"
