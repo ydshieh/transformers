@@ -267,16 +267,17 @@ def get_tiny_config(config_class):
 
 def get_config_class_from_processor_class(processor_class):
     """
-    Some configurations use other tokenizers/feature_extractors. For example, `GPT-J` use `GPT2Tokenizer`.
+    Some configurations use tokenizers/feature_extractors from other models. For example, `GPT-J` uses `GPT2Tokenizer`.
     If no checkpoint is found for a configuration, or a checkpoint is found without necessary file(s) to load the
-    processor, it should be fine to use a checkpoint found for the config that corresponds to `processor_class`.
+    processor, we get the config class that corresponds to `processor_class` and use it to find a checkpoint in order to
+    create the processor.
     """
 
     processor_prefix = processor_class.__name__
     for postfix in ["Processor", "TokenizerFast", "Tokenizer", "FeatureExtractor"]:
         processor_prefix = processor_prefix.replace(postfix, "")
 
-    # TODO: bad Wav2Vec2CTCTokenizer without Wav2Vec2CTCConfig
+    # `Wav2Vec2CTCTokenizer` -> `Wav2Vec2Config`
     if processor_prefix == "Wav2Vec2CTC":
         processor_prefix = "Wav2Vec2"
 
@@ -296,25 +297,24 @@ def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
 
 
 def build_processor(config_class, processor_class):
-    """Create and save a processor for `processor_class`.
+    """Create a processor for `processor_class`.
 
-    We don't save the processor here: the (same set of) processor will be saved in `build_model` for each `model_arch`,
-    after some performed in `convert_processors`.
+    The processor is not saved here. Instead, it will be saved in `convert_processors` after further changes in
+    `convert_processors`. For each model architecture`, a copy will be created and saved along the model.
     """
+    # Currently, this solely uses the docstring in the source file of `config_class` to find a checkpoint.
     checkpoint = get_checkpoint_from_config_class(config_class)
 
-    # TODO: checkpoint could be `None`. For example, `VisionTextDualEncoderConfig` has no checkpoint mentioned.
-    # Try to get the checkpoint from `processor_class`
     if checkpoint is None:
-        new_config_class = get_config_class_from_processor_class(processor_class)
-        checkpoint = get_checkpoint_from_config_class(new_config_class)
+        # try to get the checkpoint from the config class for `processor_class`
+        config_class_from_processor_class = get_config_class_from_processor_class(processor_class)
+        checkpoint = get_checkpoint_from_config_class(config_class_from_processor_class)
 
     processor = None
     try:
-        # TODO: Use Auto API
+        # TODO: Maybe use Auto API
         processor = processor_class.from_pretrained(checkpoint)
     except Exception as e:
-        # TODO
         pass
 
     if processor is None:
@@ -338,12 +338,13 @@ def build_processor(config_class, processor_class):
                     if attr is not None:
                         attrs[attr_name].append(attr)
 
-            # try to build a `ProcessorMixin`, so we can return the value
+            # try to build a `ProcessorMixin`, so we can return a value
             if all(len(v) > 0 for v in attrs.values()):
                 try:
                     processor = processor_class(**{k: v[0] for k, v in attrs})
-                except:
+                except Exception as e:
                     pass
+            # TODO: check
             if processor is None:
                 # deal with `WavLMConfig` with `Wav2Vec2Processor` which uses `AutoTokenizer`
                 for v in attrs.values():
@@ -351,12 +352,11 @@ def build_processor(config_class, processor_class):
                         processor = v[0]
                         break
         else:
-            # `checkpoint` might miss some files to load the processor. For example, `facebook/hubert-base-ls960`
-            # has no tokenizer files to load `Wav2Vec2CTCTokenizer`.
-            # Change `config_class` and call recursively.
-            new_config_class = get_config_class_from_processor_class(processor_class)
-            if new_config_class != config_class:
-                processor = build_processor(new_config_class, processor_class)
+            # `checkpoint` might lack some file(s) to load the processor. For example, `facebook/hubert-base-ls960`
+            # has no tokenizer file to load `Wav2Vec2CTCTokenizer`.
+            config_class_from_processor_class = get_config_class_from_processor_class(processor_class)
+            if config_class_from_processor_class != config_class:
+                processor = build_processor(config_class_from_processor_class, processor_class)
 
     return processor
 
@@ -458,10 +458,13 @@ def build(config_class, to_create, output_folder):
 
     result = {k: {} for k in to_create}
 
+    # build processors
     processor_classes = to_create["processor"]
     for processor_class in processor_classes:
         processor = build_processor(config_class, processor_class)
         result["processor"][processor_class] = processor
+
+    # TODO: continue
 
     # Try to reduce (fast) tokenizer's vocab size, and if successful, update the corresponding slow tokenizer (if any).
     processors = list(result["processor"].values())
@@ -573,10 +576,6 @@ if __name__ == "__main__":
         }
         for c in final_config_classes
     }
-
-    for c in final_config_classes:
-        d = get_checkpoint_from_config_class(c)
-    exit(0)
 
     # TODO: (to be continued)
 
