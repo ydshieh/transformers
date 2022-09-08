@@ -467,6 +467,7 @@ def build_model(config_class, model_arch, output_folder, processors=None):
 def build(config_class, to_create, output_folder):
 
     result = {k: {} for k in to_create}
+    result["error"] = {}
 
     # build processors
     processor_classes = to_create["processor"]
@@ -475,12 +476,23 @@ def build(config_class, to_create, output_folder):
         if processor is not None:
             result["processor"][processor_class] = processor
 
+    if len(result["processor"]) == 0:
+        result["error"] = "No processor could be built."
+        return result
+
     # Reduce the vocab size in tokenizer(s)
     processors = list(result["processor"].values())
     processor_output_folder = os.path.join(output_folder, "processors")
     processors = convert_processors(processors, processor_output_folder)
     # update `result`
     result["processor"] = {type(p): p for p in processors}
+
+    if len(result["processor"]) == 0:
+        result["error"] = "No processor could be converted."
+        return result
+
+    # TODO: remove
+    return result
 
     # TODO: continue
 
@@ -590,14 +602,17 @@ if __name__ == "__main__":
 
     # TODO: (to be continued)
 
-    report = {"no_feature_extractor": [], "no_tokenizer": [], "identical_tokenizer": [], "vocab_sizes": {}}
-
     results = {}
     for c, _to_create in list(to_create.items())[:]:
         print(c)
         result = build(c, _to_create, output_folder=os.path.join(args.output_path, c.model_type))
         results[c] = result
         print("====================")
+
+    # TODO: remove
+    exit(0)
+
+    report = {"no_feature_extractor": [], "no_tokenizer": [], "identical_tokenizer": [], "vocab_sizes": {}}
 
     _results = {}
     for k in results:
