@@ -96,30 +96,30 @@ per_model_type_configuration_attributes = {
 }
 
 unexportable_model_architectures = [
-    "RoFormerForMultipleChoice",
-    "TFRoFormerForMultipleChoice",
-    "TFMobileBertForMultipleChoice",
-    "MobileBertForMultipleChoice",
-    "TFDistilBertForMultipleChoice",
-    "DistilBertForMultipleChoice",
-    "TFAlbertForMultipleChoice",
-    "AlbertForMultipleChoice",
-    "TFMPNetForMultipleChoice",
-    "MPNetForMultipleChoice",
-    "TFLongformerForMultipleChoice",
-    "LongformerForMultipleChoice",
-    "TFRobertaForMultipleChoice",
-    "RobertaForMultipleChoice",
-    "SqueezeBertForMultipleChoice",
-    "TFSqueezeBertForMultipleChoice",
-    "BertForMultipleChoice",
-    "TFBertForMultipleChoice",
-    "XLNetForMultipleChoice",
-    "TFXLNetForMultipleChoice",
-    "ElectraForMultipleChoice",
-    "TFElectraForMultipleChoice",
-    "FunnelForMultipleChoice",
-    "TFFunnelForMultipleChoice",
+    # "RoFormerForMultipleChoice",
+    # "TFRoFormerForMultipleChoice",
+    # "TFMobileBertForMultipleChoice",
+    # "MobileBertForMultipleChoice",
+    # "TFDistilBertForMultipleChoice",
+    # "DistilBertForMultipleChoice",
+    # "TFAlbertForMultipleChoice",
+    # "AlbertForMultipleChoice",
+    # "TFMPNetForMultipleChoice",
+    # "MPNetForMultipleChoice",
+    # "TFLongformerForMultipleChoice",
+    # "LongformerForMultipleChoice",
+    # "TFRobertaForMultipleChoice",
+    # "RobertaForMultipleChoice",
+    # "SqueezeBertForMultipleChoice",
+    # "TFSqueezeBertForMultipleChoice",
+    # "BertForMultipleChoice",
+    # "TFBertForMultipleChoice",
+    # "XLNetForMultipleChoice",
+    # "TFXLNetForMultipleChoice",
+    # "ElectraForMultipleChoice",
+    # "TFElectraForMultipleChoice",
+    # "FunnelForMultipleChoice",
+    # "TFFunnelForMultipleChoice",
 ]
 
 # Define the PyTorch and TensorFlow mappings
@@ -203,7 +203,7 @@ def get_processor_types_from_config_class(config_class):
 
 def get_architectures_from_config_class(config_class, arch_mappings):
     """
-    Map a configuration class to a tuple of all possible architectures attributed to that configuration.
+    Get a tuple of all possible architectures attributed to a configuration class.
 
     For example, BertConfig -> [BertModel, BertForMaskedLM, ..., BertForQuestionAnswering]
     """
@@ -218,11 +218,9 @@ def get_architectures_from_config_class(config_class, arch_mappings):
     for mapping in arch_mappings:
         if config_class in mapping:
             models = mapping[config_class]
-            # TODO: Necessary?
             models = tuple(models) if isinstance(models, collections.abc.Sequence) else (models,)
             for model in models:
-                # TODO: check the condition here
-                if True or model.__name__ not in unexportable_model_architectures:
+                if model.__name__ not in unexportable_model_architectures:
                     architectures.add(model)
 
     architectures = tuple(architectures)
@@ -231,33 +229,34 @@ def get_architectures_from_config_class(config_class, arch_mappings):
 
 
 def get_checkpoint_from_config_class(config_class):
-    """
-    """
     checkpoint = None
 
     import importlib
     import inspect
     import re
 
-    # source code file where `config_class` is defined
-    config_source_file = inspect.getsourcefile(config_class)
+    # TODO: remove
+    # # source code file where `config_class` is defined
+    # config_source_file = inspect.getsourcefile(config_class)
 
     # source code of `config_class`
     config_source = inspect.getsource(config_class)
 
-    # module where `config_class` is defined.
-    # (e.g. `transformers.models.bart.configuration_bert` for `BertConfig`)
-    config_module = inspect.getmodule(config_class)
-    config_module_name = config_module.__name__
+    # TODO: remove
+    # # module where `config_class` is defined.
+    # # (e.g. `transformers.models.bart.configuration_bert` for `BertConfig`)
+    # config_module = inspect.getmodule(config_class)
+    # config_module_name = config_module.__name__
 
-    # get the model module
-    model_module_name = config_module_name.replace("configuration_", "modeling_")
-    # module where the corresponding model of `config_class` is defined
-    # (e.g. `transformers.models.bart.modeling_bert` for `BertConfig`)
-    try:
-        model_module = importlib.import_module(model_module_name)
-    except (ModuleNotFoundError, AttributeError):
-        pass
+    # TODO: remove
+    # # get the model module
+    # model_module_name = config_module_name.replace("configuration_", "modeling_")
+    # # module where the models corresponding to `config_class` are defined
+    # # (e.g. `transformers.models.bart.modeling_bert` for `BertConfig`)
+    # try:
+    #     model_module = importlib.import_module(model_module_name)
+    # except (ModuleNotFoundError, AttributeError):
+    #     pass
 
     # regex used to find the checkpoint mentioned in the docstring of `config_class`.
     # For example, `[bert-base-uncased](https://huggingface.co/bert-base-uncased)`
@@ -606,8 +605,6 @@ if __name__ == "__main__":
     # Mappings from config classes to lists of processor (tokenizer, feature extractor, processor) classes
     processor_type_map = {c: get_processor_types_from_config_class(c) for c in config_classes}
 
-    # TODO: (to be continued)
-
     # Skip models that have no processor at all
     config_classes_with_processor = [c for c in config_classes if len(processor_type_map[c]) > 0]
 
@@ -626,9 +623,11 @@ if __name__ == "__main__":
         for c in final_config_classes
     }
 
-    # for c in final_config_classes:
-    #     d = get_checkpoint_from_config_class(c)
-    # exit(0)
+    for c in final_config_classes:
+        d = get_checkpoint_from_config_class(c)
+    exit(0)
+
+    # TODO: (to be continued)
 
     report = {"no_feature_extractor": [], "no_tokenizer": [], "identical_tokenizer": [], "vocab_sizes": {}}
 
@@ -656,3 +655,10 @@ if __name__ == "__main__":
         json.dump(_results, fp, ensure_ascii=True, indent=4)
 
 
+    print("--- Report ---")
+
+    config_classes_without_processor = [c for c in config_classes]
+    if len(config_classes_without_processor) > 0:
+        print(
+            f"Some models could not be exported due to a lack of processor: {[c.model_type for c in config_classes_without_processor]}"
+        )
