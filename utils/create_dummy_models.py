@@ -386,21 +386,20 @@ def convert_processors(processors, output_folder):
     fast_tokenizer = None
     slow_tokenizer = None
     for tokenizer in tokenizers:
-        if isinstance(tokenizer, PreTrainedTokenizerFast) and fast_tokenizer is None:
-            fast_tokenizer = tokenizer
-            try:
-                fast_tokenizer = convert_tokenizer(tokenizer)
-            except Exception as e:
-                continue
+        if isinstance(tokenizer, PreTrainedTokenizerFast):
+            if fast_tokenizer is None:
+                fast_tokenizer = tokenizer
+                try:
+                    fast_tokenizer = convert_tokenizer(tokenizer)
+                except Exception as e:
+                    continue
         elif slow_tokenizer is None:
             slow_tokenizer = tokenizer
 
     if fast_tokenizer:
         slow_tokenizer = None
         try:
-            fast_tokenizer.save_pretrained(output_folder, legacy_format=False)
-            # TODO: Could every fast tokenizer be saved in legacy format?
-            fast_tokenizer.save_pretrained(output_folder, legacy_format=True)
+            fast_tokenizer.save_pretrained(output_folder)
         except Exception as e:
             fast_tokenizer = None
 
