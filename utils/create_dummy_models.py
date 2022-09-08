@@ -12,8 +12,7 @@ from transformers.file_utils import is_tf_available, is_torch_available
 from transformers.feature_extraction_utils import FeatureExtractionMixin
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.processing_utils import ProcessorMixin, transformers_module
-
-
+from check_config_docstrings import get_checkpoint_from_config_class
 
 
 if not is_torch_available():
@@ -226,54 +225,6 @@ def get_architectures_from_config_class(config_class, arch_mappings):
     architectures = tuple(architectures)
 
     return architectures
-
-
-def get_checkpoint_from_config_class(config_class):
-    checkpoint = None
-
-    import importlib
-    import inspect
-    import re
-
-    # TODO: remove
-    # # source code file where `config_class` is defined
-    # config_source_file = inspect.getsourcefile(config_class)
-
-    # source code of `config_class`
-    config_source = inspect.getsource(config_class)
-
-    # TODO: remove
-    # # module where `config_class` is defined.
-    # # (e.g. `transformers.models.bart.configuration_bert` for `BertConfig`)
-    # config_module = inspect.getmodule(config_class)
-    # config_module_name = config_module.__name__
-
-    # TODO: remove
-    # # get the model module
-    # model_module_name = config_module_name.replace("configuration_", "modeling_")
-    # # module where the models corresponding to `config_class` are defined
-    # # (e.g. `transformers.models.bart.modeling_bert` for `BertConfig`)
-    # try:
-    #     model_module = importlib.import_module(model_module_name)
-    # except (ModuleNotFoundError, AttributeError):
-    #     pass
-
-    # regex used to find the checkpoint mentioned in the docstring of `config_class`.
-    # For example, `[bert-base-uncased](https://huggingface.co/bert-base-uncased)`
-    checkpoint_regex = re.compile("\[.+?\]\(https://huggingface\.co/.+?\)")
-    checkpoints = checkpoint_regex.findall(config_source)
-
-    # post processing
-    for ckpt in checkpoints:
-
-        regex = re.compile(r"(?:\[)(.+?)(?:\])")
-        ckpt2 = regex.search(ckpt).group(1)
-        ckpt_link = f"https://huggingface.co/{ckpt2}"
-        if ckpt_link in ckpt:
-            checkpoint = ckpt2
-            break
-
-    return checkpoint
 
 
 # TODO: improve
