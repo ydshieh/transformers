@@ -317,6 +317,16 @@ def build_processor(config_class, processor_class):
     except Exception as e:
         pass
 
+    # Try to get a new processor class from checkpoint. This is helpful to deal with a checkpoint without necessary file
+    # to load processor while `processor_class` is an Auto class.
+    # For example, see `https://huggingface.co/asapp/sew-tiny-100k`.
+    if processor is None and checkpoint is not None and issubclass(processor_class, (PreTrainedTokenizerBase, AutoTokenizer)):
+        config = AutoConfig.from_pretrained(checkpoint)
+        assert isinstance(config, config_class)
+        new_processor_class = getattr(transformers_module, config.tokenizer_class)
+        if new_processor_class != processor_class:
+            processor = build_processor(config_class, new_processor_class)
+
     if processor is None:
 
         # Try to build each component (tokenizer & feature extractor) of a `ProcessorMixin`.
@@ -344,13 +354,6 @@ def build_processor(config_class, processor_class):
                     processor = processor_class(**{k: v[0] for k, v in attrs})
                 except Exception as e:
                     pass
-            # TODO: check
-            if processor is None:
-                # deal with `WavLMConfig` with `Wav2Vec2Processor` which uses `AutoTokenizer`
-                for v in attrs.values():
-                    if len(v) > 0:
-                        processor = v[0]
-                        break
         else:
             # `checkpoint` might lack some file(s) to load the processor. For example, `facebook/hubert-base-ls960`
             # has no tokenizer file to load `Wav2Vec2CTCTokenizer`.
