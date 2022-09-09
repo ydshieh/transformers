@@ -363,7 +363,7 @@ def build_processor(config_class, processor_class):
 
     # validation
     if processor is not None:
-        assert isinstance(processor, processor_class) or not processor_class.__name__.startswith("Auto")
+        assert isinstance(processor, processor_class) or processor_class.__name__.startswith("Auto")
 
     return processor
 
