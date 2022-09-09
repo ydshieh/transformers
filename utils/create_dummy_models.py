@@ -383,8 +383,8 @@ def convert_processors(processors, output_folder):
             feature_extractors.append(processor.feature_extractor)
 
     # check the built processors have the unique type
-    assert len(set([x.__class__.name for x in feature_extractors])) < 2
-    assert len(set([x.__class__.name.replace("Fast", "") for x in tokenizers])) < 2
+    assert len(set([x.__class__.__name__ for x in feature_extractors])) < 2
+    assert len(set([x.__class__.__name__.replace("Fast", "") for x in tokenizers])) < 2
 
     fast_tokenizer = None
     slow_tokenizer = None
@@ -565,7 +565,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--black_list", type=list_str, help="Comma-separated list of model type(s) to ignore.", default='convbert,blenderbot-small,rag,dpr,retribert,layoutlmv2')
     # TODO: (remove) removed `ONNX` from the original `help`.
-    parser.add_argument("output_path", type=Path, help="Path indicating where to store generated model.")
+    # TODO: (remove) remove #
+    # parser.add_argument("output_path", type=Path, help="Path indicating where to store generated model.")
     args = parser.parse_args()
 
     # --------------------------------------------------------------------------------
