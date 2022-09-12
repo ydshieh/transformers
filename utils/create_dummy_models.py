@@ -614,6 +614,10 @@ if __name__ == "__main__":
         print("====================")
 
     # TODO: remove
+    with open("dummy_creation.json", "w") as fp:
+        json.dump(results, fp, indent=4)
+
+    # TODO: remove
     exit(0)
 
     report = {"no_feature_extractor": [], "no_tokenizer": [], "identical_tokenizer": [], "vocab_sizes": {}}
