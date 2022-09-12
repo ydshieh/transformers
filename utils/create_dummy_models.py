@@ -323,9 +323,11 @@ def build_processor(config_class, processor_class):
     if processor is None and checkpoint is not None and issubclass(processor_class, (PreTrainedTokenizerBase, AutoTokenizer)):
         config = AutoConfig.from_pretrained(checkpoint)
         assert isinstance(config, config_class)
-        new_processor_class = getattr(transformers_module, config.tokenizer_class)
-        if new_processor_class != processor_class:
-            processor = build_processor(config_class, new_processor_class)
+        tokenizer_class = config.tokenizer_class
+        if tokenizer_class is not None:
+            new_processor_class = getattr(transformers_module, tokenizer_class)
+            if new_processor_class != processor_class:
+                processor = build_processor(config_class, new_processor_class)
 
     if processor is None:
 
