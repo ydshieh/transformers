@@ -147,7 +147,7 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
         import transformers
 
         results = {}
-        num_iter = 1
+        num_iter = 10
 
         for _ in range(num_iter):
             super().test_pt_tf_model_equivalence()
@@ -170,7 +170,8 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
 
             model_class = transformers.models.groupvit.modeling_tf_groupvit.TFGroupViTVisionModel
             context = "extra"
-            results[model_class.__name__] = {}
+            if model_class.__name__ not in results:
+                results[model_class.__name__] = {}
             super().check_pt_tf_outputs(tf_outputs, pt_outputs, model_class=model_class, tol=1e-5, name="outputs", attributes=None, context=context, results=results)
 
             from copy import deepcopy
