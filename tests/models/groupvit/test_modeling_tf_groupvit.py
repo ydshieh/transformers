@@ -170,9 +170,9 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
 
             import json
             with open("pt_outputs", "w") as fp:
-                json.dump({k: v.detach().to("cpu").numpy().tolist() for k, v in pt_outputs.items()}, fp)
+                json.dump({k: [x.detach().to("cpu").numpy().tolist() for x in v] for k, v in pt_outputs.items()}, fp)
             with open("tf_outputs", "w") as fp:
-                json.dump({k: v.numpy().tolist() for k, v in tf_outputs.items()}, fp)
+                json.dump({k: [x.numpy().tolist() for x in v] for k, v in tf_outputs.items()}, fp)
 
             model_class = transformers.models.groupvit.modeling_tf_groupvit.TFGroupViTVisionModel
             context = "extra"
