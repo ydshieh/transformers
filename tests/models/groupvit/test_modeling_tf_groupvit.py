@@ -168,6 +168,12 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
             pt_outputs = {k: pt_results[k] for k in keys}
             tf_outputs = {k: tf_results[k] for k in keys}
 
+            import json
+            with open("pt_outputs", "w") as fp:
+                json.dump({k: v.detach().to("cpu").numpy().tolist() for k, v in pt_outputs.items()}, fp)
+            with open("tf_outputs", "w") as fp:
+                json.dump({k: v.numpy().tolist() for k, v in tf_outputs.items()}, fp)
+
             model_class = transformers.models.groupvit.modeling_tf_groupvit.TFGroupViTVisionModel
             context = "extra"
             if model_class.__name__ not in results:
