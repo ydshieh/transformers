@@ -612,12 +612,21 @@ if __name__ == "__main__":
     for c, _to_create in list(to_create.items())[:]:
         print(c)
         result = build(c, _to_create, output_folder=os.path.join(args.output_path, c.model_type))
-        results[c.__name__] = result
+        results[c] = result
         print("====================")
+
+    # serialization
+    _results = copy.deepcopy(results)
+    for c, result in results.items():
+        _results[c.__name__] = _results[c]
+        del _results[c]
+        for k in result["processor"]:
+            _results[c.__name__]["processor"][k.__name__] = str(result["processor"][k])
+            del _results[c.__name__]["processor"][k]
 
     # TODO: remove
     with open("dummy_creation.json", "w") as fp:
-        json.dump(results, fp, indent=4)
+        json.dump(_results, fp, indent=4)
 
     # TODO: remove
     exit(0)
