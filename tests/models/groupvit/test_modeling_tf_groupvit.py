@@ -147,7 +147,7 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
         import transformers
 
         results = {}
-        num_iter = 1
+        num_iter = 100
 
         for _ in range(num_iter):
             super().test_pt_tf_model_equivalence()
@@ -169,9 +169,9 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
             tf_outputs = {k: tf_results[k] for k in keys}
 
             import json
-            with open("pt_outputs", "w") as fp:
+            with open("pt_outputs.json", "w") as fp:
                 json.dump({k: [x.detach().to("cpu").numpy().tolist() for x in v] for k, v in pt_outputs.items()}, fp)
-            with open("tf_outputs", "w") as fp:
+            with open("tf_outputs.json", "w") as fp:
                 json.dump({k: [x.numpy().tolist() for x in v] for k, v in tf_outputs.items()}, fp)
 
             model_class = transformers.models.groupvit.modeling_tf_groupvit.TFGroupViTVisionModel
@@ -196,6 +196,9 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
                     json.dump(results, fp, ensure_ascii=False, indent=4)
                 with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra_backup.json", "w", encoding="UTF-8") as fp:
                     json.dump(results, fp, ensure_ascii=False, indent=4)
+
+            if results["TFGroupViTVisionModel"]["extra"]["outputs.stage 0 - GroupViTTokenAssign - GroupViTAssignAttention - hard_softmax - index = y_soft.max(dim, keepdim=True)[1]_0_max_diff"] > 0.5:
+                break
 
     def setUp(self):
         self.model_tester = TFGroupViTVisionModelTester(self)
