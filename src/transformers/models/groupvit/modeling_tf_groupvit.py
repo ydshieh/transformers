@@ -308,28 +308,40 @@ class TFGroupViTAssignAttention(tf.keras.layers.Layer):
 
         return attn
 
-    def call(self, query: tf.Tensor, key: tf.Tensor, training: bool = False):
+    def call(self, query: tf.Tensor, key: tf.Tensor, training: bool = False, desc=None):
         value = key
+        tf_results[f"{get_key(self)} - {desc} - {'value = key'}"].append(value)
+        
         # [batch_size, query_length, channels]
         query = self.q_proj(query)
+        tf_results[f"{get_key(self)} - {desc} - {'query = self.q_proj(query)'}"].append(query)
 
         # [batch_size, key_length, channels]
         key = self.k_proj(key)
+        tf_results[f"{get_key(self)} - {desc} - {'key = self.k_proj(key)'}"].append(key)
 
         # [batch_size, key_length, channels]
         value = self.v_proj(value)
+        tf_results[f"{get_key(self)} - {desc} - {'value = self.v_proj(value)'}"].append(value)
 
         # [batch_size, query_length, key_length]
         raw_attn = tf.matmul(query, key, transpose_b=True) * self.scale
+        tf_results[f"{get_key(self)} - {desc} - {'raw_attn = (query @ key.transpose(-2, -1)) * self.scale'}"].append(raw_attn)
 
         attn = self.get_attn(raw_attn, training=training)
+        tf_results[f"{get_key(self)} - {desc} - {'attn = self.get_attn(raw_attn)'}"].append(attn)
+        
         soft_attn = self.get_attn(raw_attn, training=training, gumbel=False, hard=False)
+        tf_results[f"{get_key(self)} - {desc} - {'soft_attn = self.get_attn(raw_attn, gumbel=False, hard=False)'}"].append(soft_attn)
 
         attn = attn / (tf.math.reduce_sum(attn, axis=-1, keepdims=True) + self.assign_eps)
+        tf_results[f"{get_key(self)} - {desc} - {'attn = attn / (attn.sum(dim=-1, keepdim=True) + self.assign_eps)'}"].append(attn)
 
         out = tf.matmul(attn, value)
+        tf_results[f"{get_key(self)} - {desc} - {'out = attn @ value'}"].append(out)
 
         out = self.proj(out)
+        tf_results[f"{get_key(self)} - {desc} - {'out = self.proj(out)'}"].append(out)
 
         return out, soft_attn
 
@@ -393,7 +405,7 @@ class TFGroupViTTokenAssign(tf.keras.layers.Layer):
         projected_group_tokens = self.pre_assign_attn(projected_group_tokens, image_tokens)
         tf_results[f"{get_key(self)} - {desc} - {'projected_group_tokens = self.pre_assign_attn(projected_group_tokens, image_tokens)'}"].append(projected_group_tokens)
                 
-        new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens)
+        new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens, desc=f"{desc} - GroupViTAssignAttention")
         tf_results[f"{get_key(self)} - {desc} - {'new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens) - new_image_tokens'}"].append(new_image_tokens)
         tf_results[f"{get_key(self)} - {desc} - {'new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens) - attention'}"].append(attention)
 

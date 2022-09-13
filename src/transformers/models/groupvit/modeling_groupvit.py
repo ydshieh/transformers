@@ -214,28 +214,40 @@ class GroupViTAssignAttention(nn.Module):
 
         return attn
 
-    def forward(self, query, key):
+    def forward(self, query, key, desc=None):
         value = key
+        pt_results[f"{get_key(self)} - {desc} - {'value = key'}"].append(value)
+
         # [batch_size, query_length, channels]
         query = self.q_proj(query)
+        pt_results[f"{get_key(self)} - {desc} - {'query = self.q_proj(query)'}"].append(query)
 
         # [batch_size, key_length, channels]
         key = self.k_proj(key)
+        pt_results[f"{get_key(self)} - {desc} - {'key = self.k_proj(key)'}"].append(key)
 
         # [batch_size, key_length, channels]
         value = self.v_proj(value)
+        pt_results[f"{get_key(self)} - {desc} - {'value = self.v_proj(value)'}"].append(value)
 
         # [batch_size, query_length, key_length]
         raw_attn = (query @ key.transpose(-2, -1)) * self.scale
+        pt_results[f"{get_key(self)} - {desc} - {'raw_attn = (query @ key.transpose(-2, -1)) * self.scale'}"].append(raw_attn)
 
         attn = self.get_attn(raw_attn)
+        pt_results[f"{get_key(self)} - {desc} - {'attn = self.get_attn(raw_attn)'}"].append(attn)
+
         soft_attn = self.get_attn(raw_attn, gumbel=False, hard=False)
+        pt_results[f"{get_key(self)} - {desc} - {'soft_attn = self.get_attn(raw_attn, gumbel=False, hard=False)'}"].append(soft_attn)
 
         attn = attn / (attn.sum(dim=-1, keepdim=True) + self.assign_eps)
+        pt_results[f"{get_key(self)} - {desc} - {'attn = attn / (attn.sum(dim=-1, keepdim=True) + self.assign_eps)'}"].append(attn)
 
         out = attn @ value
+        pt_results[f"{get_key(self)} - {desc} - {'out = attn @ value'}"].append(out)
 
         out = self.proj(out)
+        pt_results[f"{get_key(self)} - {desc} - {'out = self.proj(out)'}"].append(out)
 
         return out, soft_attn
 
@@ -295,7 +307,7 @@ class GroupViTTokenAssign(nn.Module):
         projected_group_tokens = self.pre_assign_attn(projected_group_tokens, image_tokens)
         pt_results[f"{get_key(self)} - {desc} - {'projected_group_tokens = self.pre_assign_attn(projected_group_tokens, image_tokens)'}"].append(projected_group_tokens)
 
-        new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens)
+        new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens, desc=f"{desc} - GroupViTAssignAttention")
         pt_results[f"{get_key(self)} - {desc} - {'new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens) - new_image_tokens'}"].append(new_image_tokens)
         pt_results[f"{get_key(self)} - {desc} - {'new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens) - attention'}"].append(attention)
 
