@@ -90,7 +90,7 @@ def hard_softmax(logits: torch.Tensor, dim: int, desc=None):
 
     # Straight through.
     index = y_soft.max(dim, keepdim=True)[1]
-    pt_results[f"{desc} - hard_softmax - {'index = y_soft.max(dim, keepdim=True)[1]'}"].append(index)
+    # pt_results[f"{desc} - hard_softmax - {'index = y_soft.max(dim, keepdim=True)[1]'}"].append(index)
 
     y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format).scatter_(dim, index, 1.0)
     pt_results[f"{desc} - hard_softmax - {'y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format).scatter_(dim, index, 1.0)'}"].append(y_hard)

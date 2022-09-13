@@ -147,7 +147,7 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
         import transformers
 
         results = {}
-        num_iter = 10
+        num_iter = 1
 
         for _ in range(num_iter):
             super().test_pt_tf_model_equivalence()

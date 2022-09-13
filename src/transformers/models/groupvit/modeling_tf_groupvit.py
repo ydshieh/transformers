@@ -118,7 +118,7 @@ def hard_softmax(logits: tf.Tensor, dim: int, desc=None) -> tf.Tensor:
 
     # Straight through.
     index = tf.argmax(y_soft, dim)
-    tf_results[f"{desc} - hard_softmax - {'index = y_soft.max(dim, keepdim=True)[1]'}"].append(index)
+    # tf_results[f"{desc} - hard_softmax - {'index = y_soft.max(dim, keepdim=True)[1]'}"].append(index)
 
     y_hard = tf.one_hot(
         index,
