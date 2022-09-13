@@ -373,7 +373,7 @@ class TFGroupViTTokenAssign(tf.keras.layers.Layer):
         projected_group_tokens = self.norm_post_tokens(projected_group_tokens)
         return projected_group_tokens
 
-    def call(self, image_tokens: tf.Tensor, group_tokens: tf.Tensor, training: bool = False):
+    def call(self, image_tokens: tf.Tensor, group_tokens: tf.Tensor, training: bool = False, desc=None):
         """
         Args:
             image_tokens (`tf.Tensor`): image tokens, of shape [batch_size, input_length, channels]
@@ -381,14 +381,27 @@ class TFGroupViTTokenAssign(tf.keras.layers.Layer):
         """
 
         group_tokens = self.norm_tokens(group_tokens)
+        tf_results[f"{get_key(self)} - {desc} - {'group_tokens = self.norm_tokens(group_tokens)'}"].append(group_tokens)
+
         image_tokens = self.norm_x(image_tokens)
+        tf_results[f"{get_key(self)} - {desc} - {'image_tokens = self.norm_x(image_tokens)'}"].append(image_tokens)
+
         # [batch_size, num_output_groups, channels]
         projected_group_tokens = self.project_group_token(group_tokens)
+        tf_results[f"{get_key(self)} - {desc} - {'projected_group_tokens = self.project_group_token(group_tokens)'}"].append(projected_group_tokens)
+
         projected_group_tokens = self.pre_assign_attn(projected_group_tokens, image_tokens)
+        tf_results[f"{get_key(self)} - {desc} - {'projected_group_tokens = self.pre_assign_attn(projected_group_tokens, image_tokens)'}"].append(projected_group_tokens)
+                
         new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens)
+        tf_results[f"{get_key(self)} - {desc} - {'new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens) - new_image_tokens'}"].append(new_image_tokens)
+        tf_results[f"{get_key(self)} - {desc} - {'new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens) - attention'}"].append(attention)
+
         new_image_tokens += projected_group_tokens
+        tf_results[f"{get_key(self)} - {desc} - {'new_image_tokens += projected_group_tokens'}"].append(new_image_tokens)        
 
         new_image_tokens = new_image_tokens + self.mlp_channels(self.norm_new_x(new_image_tokens))
+        tf_results[f"{get_key(self)} - {desc} - {'new_image_tokens = new_image_tokens + self.mlp_channels(self.norm_new_x(new_image_tokens))'}"].append(new_image_tokens)        
 
         return new_image_tokens, attention
 
@@ -706,7 +719,7 @@ class TFGroupViTStage(tf.keras.layers.Layer):
 
         attention = None
         if self.downsample is not None:
-            x, attention = self.downsample(x, group_token)
+            x, attention = self.downsample(x, group_token, desc=f"{desc} - GroupViTTokenAssign")
             tf_results[f"{get_key(self)} - {desc} - {'x, attention = self.downsample(x, group_token)'} - x"].append(x)
 
         outputs = (x, group_token)
