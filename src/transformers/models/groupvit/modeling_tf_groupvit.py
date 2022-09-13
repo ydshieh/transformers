@@ -112,10 +112,14 @@ def groupvit_loss(similarity: tf.Tensor) -> tf.Tensor:
     return (caption_loss + image_loss) / 2.0
 
 
-def hard_softmax(logits: tf.Tensor, dim: int) -> tf.Tensor:
+def hard_softmax(logits: tf.Tensor, dim: int, desc=None) -> tf.Tensor:
     y_soft = stable_softmax(logits, dim)
+    tf_results[f"{desc} - hard_softmax - {'y_soft = logits.softmax(dim)'}"].append(y_soft)
+
     # Straight through.
     index = tf.argmax(y_soft, dim)
+    tf_results[f"{desc} - hard_softmax - {'index = y_soft.max(dim, keepdim=True)[1]'}"].append(index)
+
     y_hard = tf.one_hot(
         index,
         depth=shape_list(logits)[dim],
@@ -124,7 +128,10 @@ def hard_softmax(logits: tf.Tensor, dim: int) -> tf.Tensor:
         axis=range(len(shape_list(logits)))[dim],
         dtype=y_soft.dtype,
     )
+    tf_results[f"{desc} - hard_softmax - {'y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format).scatter_(dim, index, 1.0)'}"].append(y_hard)
+    
     ret = y_hard - tf.stop_gradient(y_soft) + y_soft
+    tf_results[f"{desc} - hard_softmax - {'ret = y_hard - y_soft.detach() + y_soft'}"].append(ret)
 
     return ret
 
@@ -296,13 +303,13 @@ class TFGroupViTAssignAttention(tf.keras.layers.Layer):
         self.proj = tf.keras.layers.Dense(config.hidden_size, name="proj")
         self.assign_eps = config.assign_eps
 
-    def get_attn(self, attn: tf.Tensor, gumbel: bool = True, hard: bool = True, training: bool = False) -> tf.Tensor:
+    def get_attn(self, attn: tf.Tensor, gumbel: bool = True, hard: bool = True, training: bool = False, desc=None) -> tf.Tensor:
 
         if gumbel and training:
             attn = gumbel_softmax(attn, dim=-2, hard=hard)
         else:
             if hard:
-                attn = hard_softmax(attn, dim=-2)
+                attn = hard_softmax(attn, dim=-2, desc=desc)
             else:
                 attn = stable_softmax(attn, axis=-2)
 
@@ -328,7 +335,7 @@ class TFGroupViTAssignAttention(tf.keras.layers.Layer):
         raw_attn = tf.matmul(query, key, transpose_b=True) * self.scale
         tf_results[f"{get_key(self)} - {desc} - {'raw_attn = (query @ key.transpose(-2, -1)) * self.scale'}"].append(raw_attn)
 
-        attn = self.get_attn(raw_attn, training=training)
+        attn = self.get_attn(raw_attn, training=training, desc=desc)
         tf_results[f"{get_key(self)} - {desc} - {'attn = self.get_attn(raw_attn)'}"].append(attn)
         
         soft_attn = self.get_attn(raw_attn, training=training, gumbel=False, hard=False)

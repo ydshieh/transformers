@@ -84,12 +84,19 @@ def groupvit_loss(similarity: torch.Tensor) -> torch.Tensor:
     return (caption_loss + image_loss) / 2.0
 
 
-def hard_softmax(logits: torch.Tensor, dim: int):
+def hard_softmax(logits: torch.Tensor, dim: int, desc=None):
     y_soft = logits.softmax(dim)
+    pt_results[f"{desc} - hard_softmax - {'y_soft = logits.softmax(dim)'}"].append(y_soft)
+
     # Straight through.
     index = y_soft.max(dim, keepdim=True)[1]
+    pt_results[f"{desc} - hard_softmax - {'index = y_soft.max(dim, keepdim=True)[1]'}"].append(index)
+
     y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format).scatter_(dim, index, 1.0)
+    pt_results[f"{desc} - hard_softmax - {'y_hard = torch.zeros_like(logits, memory_format=torch.legacy_contiguous_format).scatter_(dim, index, 1.0)'}"].append(y_hard)
+
     ret = y_hard - y_soft.detach() + y_soft
+    pt_results[f"{desc} - hard_softmax - {'ret = y_hard - y_soft.detach() + y_soft'}"].append(ret)
 
     return ret
 
@@ -202,13 +209,13 @@ class GroupViTAssignAttention(nn.Module):
         self.proj = nn.Linear(config.hidden_size, config.hidden_size)
         self.assign_eps = config.assign_eps
 
-    def get_attn(self, attn, gumbel=True, hard=True):
+    def get_attn(self, attn, gumbel=True, hard=True, desc=None):
 
         if gumbel and self.training:
             attn = gumbel_softmax(attn, dim=-2, hard=hard)
         else:
             if hard:
-                attn = hard_softmax(attn, dim=-2)
+                attn = hard_softmax(attn, dim=-2, desc=desc)
             else:
                 attn = nn.functional.softmax(attn, dim=-2)
 
@@ -234,7 +241,7 @@ class GroupViTAssignAttention(nn.Module):
         raw_attn = (query @ key.transpose(-2, -1)) * self.scale
         pt_results[f"{get_key(self)} - {desc} - {'raw_attn = (query @ key.transpose(-2, -1)) * self.scale'}"].append(raw_attn)
 
-        attn = self.get_attn(raw_attn)
+        attn = self.get_attn(raw_attn, desc=desc)
         pt_results[f"{get_key(self)} - {desc} - {'attn = self.get_attn(raw_attn)'}"].append(attn)
 
         soft_attn = self.get_attn(raw_attn, gumbel=False, hard=False)
