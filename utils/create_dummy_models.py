@@ -471,7 +471,7 @@ def build_model(config_class, model_arch, output_folder, processors=None):
 
 def build(config_class, to_create, output_folder):
 
-    result = {}
+    result = {k: {} for k in to_create}
     result["error"] = {}
 
     # build processors
