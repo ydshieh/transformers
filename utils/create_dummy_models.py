@@ -471,7 +471,7 @@ def build_model(config_class, model_arch, output_folder, processors=None):
 
 def build(config_class, to_create, output_folder):
 
-    result = {k: {} for k in to_create}
+    result = {}
     result["error"] = {}
 
     # build processors
@@ -612,7 +612,7 @@ if __name__ == "__main__":
     for c, _to_create in list(to_create.items())[:]:
         print(c)
         result = build(c, _to_create, output_folder=os.path.join(args.output_path, c.model_type))
-        results[c] = result
+        results[c.__name__] = result
         print("====================")
 
     # TODO: remove
