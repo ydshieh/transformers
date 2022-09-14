@@ -347,18 +347,18 @@ class TFGroupViTAssignAttention(tf.keras.layers.Layer):
         out = tf.matmul(attn, value)
         tf_results[f"{get_key(self)} - {desc} - {'out = attn @ value'}"].append(out)
 
-        out = self.proj(out)
+        out2 = self.proj(out)
 
         import numpy as np
         np_o = np.matmul(out.numpy(), self.proj.kernel.numpy())
         tf_results[f"{get_key(self)} - {desc} - {'np_o'}"].append(tf.constant(np_o))
 
-        tf_results[f"{get_key(self)} - {desc} - {'out = self.proj(out)'}"].append(out)
+        tf_results[f"{get_key(self)} - {desc} - {'out = self.proj(out)'}"].append(out2)
 
         tf_results[f"{get_key(self)} - {desc} - {'self.proj.kernel'}"].append(tf.transpose(self.proj.kernel.value(), perm=(1, 0)))
         tf_results[f"{get_key(self)} - {desc} - {'self.proj.bias'}"].append(self.proj.bias.value())
 
-        return out, soft_attn
+        return out2, soft_attn
 
 
 class TFGroupViTTokenAssign(tf.keras.layers.Layer):
