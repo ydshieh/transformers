@@ -253,6 +253,10 @@ class GroupViTAssignAttention(nn.Module):
         out = attn @ value
         pt_results[f"{get_key(self)} - {desc} - {'out = attn @ value'}"].append(out)
 
+        import numpy as np
+        np_o = np.matmul(out.numpy(), torch.permute(self.proj.weight, (1, 0)).numpy())
+        pt_results[f"{get_key(self)} - {desc} - {'np_o'}"].append(torch.tensor(np_o))
+
         out = self.proj(out)
         pt_results[f"{get_key(self)} - {desc} - {'out = self.proj(out)'}"].append(out)
 

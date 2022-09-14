@@ -347,6 +347,10 @@ class TFGroupViTAssignAttention(tf.keras.layers.Layer):
         out = tf.matmul(attn, value)
         tf_results[f"{get_key(self)} - {desc} - {'out = attn @ value'}"].append(out)
 
+        import numpy as np
+        np_o = np.matmul(out.numpy(), self.proj.kernel.numpy())
+        tf_results[f"{get_key(self)} - {desc} - {'np_o'}"].append(tf.constant(np_o))
+
         out = self.proj(out)
         tf_results[f"{get_key(self)} - {desc} - {'out = self.proj(out)'}"].append(out)
 
