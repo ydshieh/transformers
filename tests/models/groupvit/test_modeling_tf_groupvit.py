@@ -197,8 +197,15 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
                 with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra_backup.json", "w", encoding="UTF-8") as fp:
                     json.dump(results, fp, ensure_ascii=False, indent=4)
 
-            if results["TFGroupViTVisionModel"]["extra"]["outputs.stage 0 - GroupViTTokenAssign - GroupViTAssignAttention - hard_softmax - index = y_soft.max(dim, keepdim=True)[1]_0_max_diff"] > 0.5:
-                break
+                if results["TFGroupViTVisionModel"]["extra"]["outputs.stage 0 - GroupViTTokenAssign - GroupViTAssignAttention - hard_softmax - index = y_soft.max(dim, keepdim=True)[1]_0_max_diff"] < 0.1:
+                    import torch
+                    import json
+                    with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra.json", "w", encoding="UTF-8") as fp:
+                        json.dump(results, fp, ensure_ascii=False, indent=4)
+                    with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra_backup.json", "w", encoding="UTF-8") as fp:
+                        json.dump(results, fp, ensure_ascii=False, indent=4)
+
+                    break
 
     def setUp(self):
         self.model_tester = TFGroupViTVisionModelTester(self)
