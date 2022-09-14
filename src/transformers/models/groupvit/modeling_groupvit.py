@@ -256,6 +256,9 @@ class GroupViTAssignAttention(nn.Module):
         out = self.proj(out)
         pt_results[f"{get_key(self)} - {desc} - {'out = self.proj(out)'}"].append(out)
 
+        pt_results[f"{get_key(self)} - {desc} - {'self.proj.kernel'}"].append(self.proj.weight)
+        pt_results[f"{get_key(self)} - {desc} - {'self.proj.bias'}"].append(self.proj.bias)
+
         return out, soft_attn
 
 

@@ -350,6 +350,9 @@ class TFGroupViTAssignAttention(tf.keras.layers.Layer):
         out = self.proj(out)
         tf_results[f"{get_key(self)} - {desc} - {'out = self.proj(out)'}"].append(out)
 
+        tf_results[f"{get_key(self)} - {desc} - {'self.proj.kernel'}"].append(self.proj.kernel.value())
+        tf_results[f"{get_key(self)} - {desc} - {'self.proj.bias'}"].append(self.proj.bias.value())
+
         return out, soft_attn
 
 
