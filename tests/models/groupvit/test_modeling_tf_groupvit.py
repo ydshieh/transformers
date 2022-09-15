@@ -87,7 +87,10 @@ class TFGroupViTVisionModelTester:
         self.seq_length = num_patches
 
     def prepare_config_and_inputs(self):
-        pixel_values = floats_tensor([self.batch_size, self.num_channels, self.image_size, self.image_size])
+
+        import random
+        rng = random.Random(0)
+        pixel_values = floats_tensor([self.batch_size, self.num_channels, self.image_size, self.image_size], rng=rng)
         config = self.get_config()
 
         return config, pixel_values
@@ -147,9 +150,20 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
         import transformers
 
         results = {}
-        num_iter = 100
+        num_iter = 10
 
         for _ in range(num_iter):
+
+            import random
+            import numpy as np
+            import torch
+            import tensorflow as tf
+            random.seed(0)
+            np.random.seed(0)
+            torch.manual_seed(0)
+            torch.cuda.manual_seed_all(0)
+            tf.random.set_seed(0)
+
             super().test_pt_tf_model_equivalence()
 
             pt_results = transformers.models.groupvit.modeling_groupvit.pt_results
@@ -169,16 +183,46 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
             tf_outputs = {k: tf_results[k] for k in keys}
 
             import json
-            with open("pt_outputs.json", "w") as fp:
-                json.dump({k: [x.detach().to("cpu").numpy().tolist() for x in v] for k, v in pt_outputs.items()}, fp)
-            with open("tf_outputs.json", "w") as fp:
-                json.dump({k: [x.numpy().tolist() for x in v] for k, v in tf_outputs.items()}, fp)
+            #with open("pt_outputs.json", "w") as fp:
+            #    json.dump({k: [x.detach().to("cpu").numpy().tolist() for x in v] for k, v in pt_outputs.items()}, fp)
+            #with open("tf_outputs.json", "w") as fp:
+            #    json.dump({k: [x.numpy().tolist() for x in v] for k, v in tf_outputs.items()}, fp)
 
             model_class = transformers.models.groupvit.modeling_tf_groupvit.TFGroupViTVisionModel
             context = "extra"
             if model_class.__name__ not in results:
                 results[model_class.__name__] = {}
             super().check_pt_tf_outputs(tf_outputs, pt_outputs, model_class=model_class, tol=1e-5, name="outputs", attributes=None, context=context, results=results)
+
+
+            # take from parent
+            import torch
+            with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}.json", "r", encoding="UTF-8") as fp:
+                results_top = json.load(fp)
+                # clean up
+                if len(self.all_model_classes) > 0:
+                    for model_class_name in results_top:
+                        for context in results_top[model_class_name]:
+                            results_top[model_class_name][context] = {k: v for k, v in results_top[model_class_name][context].items() if not k.endswith("_max_diff")}
+
+            # combine
+            if len(self.all_model_classes) > 0:
+                for model_class_name in results_top:
+                    for context in results_top[model_class_name]:
+                        if context not in results[model_class_name]:
+                            results[model_class_name][context] = results_top[model_class_name][context]
+                        else:
+                            for name in results_top[model_class_name][context]:
+                                results[model_class_name][context][name].extend(results_top[model_class_name][context][name])
+
+            #if results["TFGroupViTVisionModel"]["extra"]["outputs.stage 0 - GroupViTTokenAssign - GroupViTAssignAttention - hard_softmax - index = y_soft.max(dim, keepdim=True)[1]_0"][-1] > 0.1:
+            #    # clean up
+            #    if len(self.all_model_classes) > 0:
+            #        for model_class_name in results:
+            #            for context in results[model_class_name]:
+            #                for names in results[model_class_name][context]:
+            #                    if not names.endswith("_max_diff"):
+            #                        results[model_class_name][context][names] = results[model_class_name][context][names][:-1]
 
             from copy import deepcopy
             _results = deepcopy(results)
@@ -187,8 +231,9 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
                     for context in _results[model_class_name]:
                         for names in _results[model_class_name][context]:
                             if not names.endswith("_max_diff"):
-                                results[model_class_name][context][names + "_max_diff"] = float(
-                                    np.amax(np.array(_results[model_class_name][context][names])))
+                                if len(_results[model_class_name][context][names]) > 0:
+                                    results[model_class_name][context][names + "_max_diff"] = float(
+                                        np.amax(np.array(_results[model_class_name][context][names])))
 
                 import torch
                 import json
@@ -197,15 +242,6 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
                 with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra_backup.json", "w", encoding="UTF-8") as fp:
                     json.dump(results, fp, ensure_ascii=False, indent=4)
 
-                if results["TFGroupViTVisionModel"]["extra"]["outputs.stage 0 - GroupViTTokenAssign - GroupViTAssignAttention - hard_softmax - index = y_soft.max(dim, keepdim=True)[1]_0_max_diff"] < 0.1:
-                    import torch
-                    import json
-                    with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra.json", "w", encoding="UTF-8") as fp:
-                        json.dump(results, fp, ensure_ascii=False, indent=4)
-                    with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_extra_backup.json", "w", encoding="UTF-8") as fp:
-                        json.dump(results, fp, ensure_ascii=False, indent=4)
-
-                    break
 
     def setUp(self):
         self.model_tester = TFGroupViTVisionModelTester(self)
