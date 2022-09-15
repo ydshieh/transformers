@@ -322,7 +322,7 @@ class GroupViTTokenAssign(nn.Module):
         pt_results[f"{get_key(self)} - {desc} - {'projected_group_tokens = self.pre_assign_attn(projected_group_tokens, image_tokens)'}"].append(projected_group_tokens)
 
         new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens, desc=f"{desc} - GroupViTAssignAttention")
-        pt_results[f"{get_key(self)} - {desc} - {'new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens) - new_image_tokens'}"].append(new_image_tokens)
+        pt_results[f"{get_key(self)} - {desc} - {'new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens) - new_image_tokens'}"].append(torch.clone(new_image_tokens.detach()))
         pt_results[f"{get_key(self)} - {desc} - {'new_image_tokens, attention = self.assign(projected_group_tokens, image_tokens) - attention'}"].append(attention)
 
         new_image_tokens += projected_group_tokens
