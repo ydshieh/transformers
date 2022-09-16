@@ -353,7 +353,7 @@ def build_processor(config_class, processor_class):
             # try to build a `ProcessorMixin`, so we can return a value
             if all(len(v) > 0 for v in attrs.values()):
                 try:
-                    processor = processor_class(**{k: v[0] for k, v in attrs})
+                    processor = processor_class(**{k: v[0] for k, v in attrs.items()})
                 except Exception as e:
                     pass
         else:
