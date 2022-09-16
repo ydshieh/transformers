@@ -173,6 +173,7 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
             # take from parent
             import torch
             diffs = []
+            import json
             with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}.json", "r", encoding="UTF-8") as fp:
                 results_top = json.load(fp)
                 # clean up
