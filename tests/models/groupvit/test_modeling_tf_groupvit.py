@@ -183,6 +183,7 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
             max_diff = max(diffs)
             diff_info[seed] = max_diff
             import pdb; pdb.set_trace()
+            import json
             with open("diff_info.json", "w") as fp:
                 json.dump(diff_info, fp, indent=4)
             continue
