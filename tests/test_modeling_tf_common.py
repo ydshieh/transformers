@@ -722,21 +722,21 @@ class TFModelTesterMixin:
                 if tf_inputs_dict_with_labels:
                     self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict_with_labels, context="with_labels_disk", results=results)
 
-                # from copy import deepcopy
-                # _results = deepcopy(results)
-                # if len(self.all_model_classes) > 0:
-                #     for model_class_name in _results:
-                #         for context in _results[model_class_name]:
-                #             for names in _results[model_class_name][context]:
-                #                 if not names.endswith("_max_diff"):
-                #                     results[model_class_name][context][names + "_max_diff"] = float(
-                #                         np.amax(np.array(_results[model_class_name][context][names])))
-                #
-                #     import json
-                #     with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}.json", "w", encoding="UTF-8") as fp:
-                #         json.dump(results, fp, ensure_ascii=False, indent=4)
-                #     with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_backup.json", "w", encoding="UTF-8") as fp:
-                #         json.dump(results, fp, ensure_ascii=False, indent=4)
+                from copy import deepcopy
+                _results = deepcopy(results)
+                if len(self.all_model_classes) > 0:
+                    for model_class_name in _results:
+                        for context in _results[model_class_name]:
+                            for names in _results[model_class_name][context]:
+                                if not names.endswith("_max_diff"):
+                                    results[model_class_name][context][names + "_max_diff"] = float(
+                                        np.amax(np.array(_results[model_class_name][context][names])))
+
+                    import json
+                    with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}.json", "w", encoding="UTF-8") as fp:
+                        json.dump(results, fp, ensure_ascii=False, indent=4)
+                    with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_backup.json", "w", encoding="UTF-8") as fp:
+                        json.dump(results, fp, ensure_ascii=False, indent=4)
 
     def test_compile_tf_model(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
