@@ -584,7 +584,7 @@ class TFModelTesterMixin:
 
             max_diff = np.amax(np.abs(tf_outputs - pt_outputs))
             # Don't fail
-            # self.assertLessEqual(max_diff, tol, f"{name}: Difference between torch and tf is {max_diff} (>= {tol}).")
+            self.assertLessEqual(max_diff, tol, f"{name}: Difference between torch and tf is {max_diff} (>= {tol}).")
 
             if context not in results[model_class.__name__]:
                 results[model_class.__name__][context] = {}
@@ -702,41 +702,41 @@ class TFModelTesterMixin:
 
                 # ignore for now
 
-                # # check with `labels`
-                # if tf_inputs_dict_with_labels:
-                #     self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict_with_labels, context="with_labels_mem", results=results)
-                #
-                # # Check we can load pt model in tf and vice-versa with checkpoint => model functions
-                # with tempfile.TemporaryDirectory() as tmpdirname:
-                #     pt_checkpoint_path = os.path.join(tmpdirname, "pt_model.bin")
-                #     torch.save(pt_model.state_dict(), pt_checkpoint_path)
-                #     tf_model = transformers.load_pytorch_checkpoint_in_tf2_model(tf_model, pt_checkpoint_path)
-                #
-                #     tf_checkpoint_path = os.path.join(tmpdirname, "tf_model.h5")
-                #     tf_model.save_weights(tf_checkpoint_path)
-                #     pt_model = transformers.load_tf2_checkpoint_in_pytorch_model(pt_model, tf_checkpoint_path)
-                #
-                # # Original test: check without `labels`
-                # self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict, context="without_labels_disk", results=results)
-                # # check with `labels`
-                # if tf_inputs_dict_with_labels:
-                #     self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict_with_labels, context="with_labels_disk", results=results)
+                # check with `labels`
+                if tf_inputs_dict_with_labels:
+                    self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict_with_labels, context="with_labels_mem", results=results)
 
-                from copy import deepcopy
-                _results = deepcopy(results)
-                if len(self.all_model_classes) > 0:
-                    for model_class_name in _results:
-                        for context in _results[model_class_name]:
-                            for names in _results[model_class_name][context]:
-                                if not names.endswith("_max_diff"):
-                                    results[model_class_name][context][names + "_max_diff"] = float(
-                                        np.amax(np.array(_results[model_class_name][context][names])))
+                # Check we can load pt model in tf and vice-versa with checkpoint => model functions
+                with tempfile.TemporaryDirectory() as tmpdirname:
+                    pt_checkpoint_path = os.path.join(tmpdirname, "pt_model.bin")
+                    torch.save(pt_model.state_dict(), pt_checkpoint_path)
+                    tf_model = transformers.load_pytorch_checkpoint_in_tf2_model(tf_model, pt_checkpoint_path)
 
-                    import json
-                    with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}.json", "w", encoding="UTF-8") as fp:
-                        json.dump(results, fp, ensure_ascii=False, indent=4)
-                    with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_backup.json", "w", encoding="UTF-8") as fp:
-                        json.dump(results, fp, ensure_ascii=False, indent=4)
+                    tf_checkpoint_path = os.path.join(tmpdirname, "tf_model.h5")
+                    tf_model.save_weights(tf_checkpoint_path)
+                    pt_model = transformers.load_tf2_checkpoint_in_pytorch_model(pt_model, tf_checkpoint_path)
+
+                # Original test: check without `labels`
+                self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict, context="without_labels_disk", results=results)
+                # check with `labels`
+                if tf_inputs_dict_with_labels:
+                    self.check_pt_tf_models(tf_model, pt_model, tf_inputs_dict_with_labels, context="with_labels_disk", results=results)
+
+                # from copy import deepcopy
+                # _results = deepcopy(results)
+                # if len(self.all_model_classes) > 0:
+                #     for model_class_name in _results:
+                #         for context in _results[model_class_name]:
+                #             for names in _results[model_class_name][context]:
+                #                 if not names.endswith("_max_diff"):
+                #                     results[model_class_name][context][names + "_max_diff"] = float(
+                #                         np.amax(np.array(_results[model_class_name][context][names])))
+                #
+                #     import json
+                #     with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}.json", "w", encoding="UTF-8") as fp:
+                #         json.dump(results, fp, ensure_ascii=False, indent=4)
+                #     with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}_backup.json", "w", encoding="UTF-8") as fp:
+                #         json.dump(results, fp, ensure_ascii=False, indent=4)
 
     def test_compile_tf_model(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()

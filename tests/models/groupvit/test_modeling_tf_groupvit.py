@@ -150,21 +150,25 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
         import transformers
 
         results = {}
-        num_iter = 10
+        num_iter = 1000
 
-        for _ in range(num_iter):
+        for seed in range(num_iter):
 
             import random
             import numpy as np
             import torch
             import tensorflow as tf
-            random.seed(0)
-            np.random.seed(0)
-            torch.manual_seed(0)
-            torch.cuda.manual_seed_all(0)
-            tf.random.set_seed(0)
+            random.seed(seed)
+            np.random.seed(seed)
+            torch.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+            tf.random.set_seed(seed)
 
-            super().test_pt_tf_model_equivalence()
+            try:
+                super().test_pt_tf_model_equivalence()
+                import pdb; pdb.set_trace()
+            except:
+                continue
 
             pt_results = transformers.models.groupvit.modeling_groupvit.pt_results
             tf_results = transformers.models.groupvit.modeling_tf_groupvit.tf_results
@@ -193,7 +197,6 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
             if model_class.__name__ not in results:
                 results[model_class.__name__] = {}
             super().check_pt_tf_outputs(tf_outputs, pt_outputs, model_class=model_class, tol=1e-5, name="outputs", attributes=None, context=context, results=results)
-
 
             # take from parent
             import torch
