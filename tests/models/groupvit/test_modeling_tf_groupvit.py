@@ -150,7 +150,8 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
         import transformers
 
         results = {}
-        num_iter = 1000
+        num_iter = 10000
+        diff_info = {}
 
         for seed in range(num_iter):
 
@@ -166,9 +167,25 @@ class TFGroupViTVisionModelTest(TFModelTesterMixin, unittest.TestCase):
 
             try:
                 super().test_pt_tf_model_equivalence()
-                import pdb; pdb.set_trace()
             except:
                 continue
+
+            # take from parent
+            import torch
+            diffs = []
+            with open(f"pt_tf_test_{'gpu' if torch.cuda.is_available() else 'cpu'}_{type(self).__name__}.json", "r", encoding="UTF-8") as fp:
+                results_top = json.load(fp)
+                # clean up
+                if len(self.all_model_classes) > 0:
+                    for model_class_name in results_top:
+                        for context in results_top[model_class_name]:
+                            diffs.extend([v for k, v in results_top[model_class_name][context].items() if k.endswith("_max_diff")])
+            max_diff = max(diffs)
+            diff_info[seed] = max_diff
+            import pdb; pdb.set_trace()
+            with open("diff_info.json", "w") as fp:
+                json.dump(diff_info, fp, indent=4)
+            continue
 
             pt_results = transformers.models.groupvit.modeling_groupvit.pt_results
             tf_results = transformers.models.groupvit.modeling_tf_groupvit.tf_results
