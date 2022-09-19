@@ -10,6 +10,7 @@ import collections.abc
 
 from transformers.file_utils import is_tf_available, is_torch_available
 from transformers.feature_extraction_utils import FeatureExtractionMixin
+from transformers.image_utils import ImageFeatureExtractionMixin
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.processing_utils import ProcessorMixin, transformers_module
 from check_config_docstrings import get_checkpoint_from_config_class
@@ -410,7 +411,7 @@ def convert_processors(processors, output_folder):
 
         if fast_tokenizer:
             try:
-                slow_tokenizer = AutoTokenizer.from_pretrained(output_folder, fast_tokenizer=False)
+                slow_tokenizer = AutoTokenizer.from_pretrained(output_folder, use_fast=False)
             except Exception as e:
                 pass
 
@@ -480,6 +481,14 @@ def build(config_class, to_create, output_folder):
         processor = build_processor(config_class, processor_class)
         if processor is not None:
             result["processor"][processor_class] = processor
+            # if isinstance(processor, PreTrainedTokenizerBase):
+            #     vocab_size = processor.vocab_size
+            #     result["processor"][processor_class]["vocab_size"] =
+            # elif isinstance(processor, ImageFeatureExtractionMixin):
+            #     image_size = getattr(processor, "size")
+            #     crop_size = getattr(processor, "crop_size")
+            #     result["processor"]["size"] = image_size
+            #     result["processor"]["crop_size"] = crop_size
 
     if len(result["processor"]) == 0:
         result["error"] = "No processor could be built."
