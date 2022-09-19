@@ -502,10 +502,12 @@ def build(config_class, to_create, output_folder):
             vocab_size = processor.vocab_size
             result["vocab_size"] = vocab_size
         elif isinstance(processor, ImageFeatureExtractionMixin):
-            image_size = getattr(processor, "size")
-            crop_size = getattr(processor, "crop_size")
+            image_size = getattr(processor, "size", None)
+            crop_size = getattr(processor, "crop_size", None)
+            crop_pct = getattr(processor, "crop_pct", None)
             result["image_size"] = image_size
             result["crop_size"] = crop_size
+            result["crop_pct"] = crop_pct
 
     # TODO: remove
     return result
