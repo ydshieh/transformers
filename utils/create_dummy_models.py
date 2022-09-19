@@ -481,14 +481,6 @@ def build(config_class, to_create, output_folder):
         processor = build_processor(config_class, processor_class)
         if processor is not None:
             result["processor"][processor_class] = processor
-            # if isinstance(processor, PreTrainedTokenizerBase):
-            #     vocab_size = processor.vocab_size
-            #     result["processor"][processor_class]["vocab_size"] =
-            # elif isinstance(processor, ImageFeatureExtractionMixin):
-            #     image_size = getattr(processor, "size")
-            #     crop_size = getattr(processor, "crop_size")
-            #     result["processor"]["size"] = image_size
-            #     result["processor"]["crop_size"] = crop_size
 
     if len(result["processor"]) == 0:
         result["error"] = "No processor could be built."
@@ -504,6 +496,16 @@ def build(config_class, to_create, output_folder):
     if len(result["processor"]) == 0:
         result["error"] = "No processor could be converted."
         return result
+
+    for processor in processors:
+        if isinstance(processor, PreTrainedTokenizerBase):
+            vocab_size = processor.vocab_size
+            result["vocab_size"] = vocab_size
+        elif isinstance(processor, ImageFeatureExtractionMixin):
+            image_size = getattr(processor, "size")
+            crop_size = getattr(processor, "crop_size")
+            result["image_size"] = image_size
+            result["crop_size"] = crop_size
 
     # TODO: remove
     return result
