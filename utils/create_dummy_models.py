@@ -426,7 +426,7 @@ def convert_processors(processors, output_folder):
     return processors
 
 
-def build_model(config_class, model_arch, output_folder, processors=None):
+def build_model(config_class, model_arch, output_folder, processors, result=None):
     """Create and save a model for `model_arch`.
     """
     # Get framework-agnostic architecture name. Used to save all PT/TF/Flax models into the same directory/repo.
@@ -442,13 +442,7 @@ def build_model(config_class, model_arch, output_folder, processors=None):
     if os.path.isdir(processor_output_folder):
         shutil.copytree(processor_output_folder, model_output_folder, dirs_exist_ok=True)
 
-    vocab_size = None
-    # Save the (same set of) processors for each `model_arch` with the same `model_type`.
-    for p in processors:
-        if isinstance(p, PreTrainedTokenizerBase):
-            vocab_size = p.vocab_size
-
-    config_overrides = {"vocab_size": vocab_size}
+    config_overrides = {k: v for k, v in result.items() if v is not None and k in ["vocab_size", "image_size"]}
 
     try:
         tiny_config = get_tiny_config(config_class)
@@ -463,6 +457,7 @@ def build_model(config_class, model_arch, output_folder, processors=None):
 
         model = model_arch(config=tiny_config)
         model.save_pretrained(model_output_folder)
+        model.from_pretrained(model_output_folder)
 
     except Exception as e:
         return e
@@ -509,33 +504,33 @@ def build(config_class, to_create, output_folder):
             result["crop_size"] = crop_size
             result["crop_pct"] = crop_pct
 
+    for pytorch_arch in to_create["pytorch"]:
+        model = build_model(config_class, pytorch_arch, output_folder=output_folder, processors=processors, result=result)
+        result["pytorch"][pytorch_arch] = model
+
     # TODO: remove
     return result
 
     # TODO: continue
 
-    for pytorch_arch in to_create["pytorch"]:
-        model = build_model(config_class, pytorch_arch, output_folder=output_folder, processors=processors)
-        result["pytorch"][pytorch_arch] = model
-
-    for tensorflow_arch in to_create["tensorflow"]:
-        # Make PT/TF weights compatible
-        pt_arch_name = tensorflow_arch.__name__[2:]  # Remove `TF`
-        pt_arch = getattr(transformers_module, pt_arch_name)
-        if isinstance(result["pytorch"].get(pt_arch, None), torch.nn.Module):
-            ckpt = os.path.join(output_folder, pt_arch_name)
-            # Use the same weights from PyTorch.
-            try:
-                model = tensorflow_arch.from_pretrained(ckpt, from_pt=True)
-                model.save_pretrained(ckpt)
-            except:
-                # Conversion may fail. One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`
-                # yet.
-                model = None
-        else:
-            model = build_model(config_class, tensorflow_arch, output_folder=output_folder, processors=processors)
-
-        result["tensorflow"][tensorflow_arch] = model
+    # for tensorflow_arch in to_create["tensorflow"]:
+    #     # Make PT/TF weights compatible
+    #     pt_arch_name = tensorflow_arch.__name__[2:]  # Remove `TF`
+    #     pt_arch = getattr(transformers_module, pt_arch_name)
+    #     if isinstance(result["pytorch"].get(pt_arch, None), torch.nn.Module):
+    #         ckpt = os.path.join(output_folder, pt_arch_name)
+    #         # Use the same weights from PyTorch.
+    #         try:
+    #             model = tensorflow_arch.from_pretrained(ckpt, from_pt=True)
+    #             model.save_pretrained(ckpt)
+    #         except:
+    #             # Conversion may fail. One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`
+    #             # yet.
+    #             model = None
+    #     else:
+    #         model = build_model(config_class, tensorflow_arch, output_folder=output_folder, processors=processors)
+    #
+    #     result["tensorflow"][tensorflow_arch] = model
 
     # for flax_arch in to_create["flax"]:
     #
