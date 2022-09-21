@@ -436,7 +436,7 @@ def convert_processors(processors, output_folder, result):
     return processors
 
 
-def build_model(config_class, model_arch, output_folder, result):
+def build_model(config_class, model_arch, output_folder, config_overrides=None):
     """Create and save a model for `model_arch`.
     """
     # Get framework-agnostic architecture name. Used to save all PT/TF/Flax models into the same directory/repo.
@@ -451,8 +451,6 @@ def build_model(config_class, model_arch, output_folder, result):
     # copy the (same set of) processors to the model specific folder
     if os.path.isdir(processor_output_folder):
         shutil.copytree(processor_output_folder, model_output_folder, dirs_exist_ok=True)
-
-    config_overrides = {k: v for k, v in result.items() if v is not None and k in ["vocab_size", "image_size"]}
 
     tiny_config = get_tiny_config(config_class)
 
@@ -507,10 +505,12 @@ def build(config_class, to_create, output_folder):
             result["crop_size"] = crop_size
             result["crop_pct"] = crop_pct
 
+    config_overrides = {k: v for k, v in result.items() if k in ["vocab_size", "image_size"] and v is not None}
+
     for pytorch_arch in to_create["pytorch"]:
         result["pytorch"][pytorch_arch] = {}
         try:
-            model = build_model(config_class, pytorch_arch, output_folder=output_folder, result=result)
+            model = build_model(config_class, pytorch_arch, output_folder=output_folder, config_overrides=config_overrides)
         except Exception as e:
             model = None
             result["pytorch"][pytorch_arch]["error"] = f"Failed to build the model: {e}"
