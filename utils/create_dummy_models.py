@@ -236,8 +236,7 @@ def get_tiny_config(config_class):
         configuration_class: Subclass of `PreTrainedConfig`.
 
     Returns:
-        an instance of the configuration passed, with very small hyper-parameters
-
+        An instance of `configuration_class` with tiny hyper-parameters
     """
     model_type = config_class.model_type
     camel_case_model_name = config_class.__name__.split("Config")[0]
@@ -247,23 +246,28 @@ def get_tiny_config(config_class):
         module_name = model_type_to_module_name(model_type)
         module = importlib.import_module(f".{module_name}.test_modeling_{module_name}", package="tests")
         model_tester_class = getattr(module, f"{camel_case_model_name}ModelTester", None)
-    except ModuleNotFoundError:
-        print(f"Will not build {model_type}: no model tester or cannot find the testing module from the model name.")
-        return
+    except ModuleNotFoundError as e:
+        print(f"Tiny config not created for {model_type}: cannot find the testing module from the model name.")
+        raise ValueError(f"Tiny config not created for {model_type} - cannot find the testing module from the model name: {str(e)}")
 
     if model_tester_class is None:
-        return
+        print(f"Tiny config not created for {model_type}: no model tester is found in the testing module.")
+        raise ValueError(f"Tiny config not created for {model_type}: no model tester is found in the testing module.")
 
+    # `parent` is an instance of `unittest.TestCase`, but we don't need it.
     model_tester = model_tester_class(parent=None)
 
     if hasattr(model_tester, "get_pipeline_config"):
         return model_tester.get_pipeline_config()
     elif hasattr(model_tester, "prepare_config_and_inputs"):
         # `PoolFormer` has no `get_config` defined. Furthermore, it's better to use `prepare_config_and_inputs` even if
-        # `get_config` is defined, since there might be some extra change in `prepare_config_and_inputs`.
+        # `get_config` is defined, since there might be some extra changes in `prepare_config_and_inputs`.
         return model_tester.prepare_config_and_inputs()[0]
     elif hasattr(model_tester, "get_config"):
         return model_tester.get_config()
+    else:
+        print(f"Tiny config not created for {model_type}: the model tester {model_tester_class.__name__} lacks necessary method to create config.")
+        raise ValueError(f"Tiny config not created for {model_type}: the model tester {model_tester_class.__name__} lacks necessary method to create config.")
 
 
 def get_config_class_from_processor_class(processor_class):
@@ -426,14 +430,17 @@ def convert_processors(processors, output_folder):
     return processors
 
 
-def build_model(config_class, model_arch, output_folder, processors, result=None):
+def build_model(config_class, model_arch, output_folder, result=None):
     """Create and save a model for `model_arch`.
     """
     # Get framework-agnostic architecture name. Used to save all PT/TF/Flax models into the same directory/repo.
+    framework = "pytorch"
     arch_name = model_arch.__name__
     if arch_name.startswith("TF"):
+        framework = "tensorflow"
         arch_name = arch_name[2:]
     elif arch_name.startswith("Flax"):
+        framework = "flax"
         arch_name = arch_name[4:]
 
     processor_output_folder = os.path.join(output_folder, "processors")
@@ -446,21 +453,21 @@ def build_model(config_class, model_arch, output_folder, processors, result=None
 
     try:
         tiny_config = get_tiny_config(config_class)
-        # TODO: `tiny_config` could be `None`. --> check and fix
-        # For example, `VisionTextDualEncoderMixin` (despite it has `prepare_config_and_inputs` without impl.)
-        if tiny_config is None:
-            return None
+    except Exception as e:
+        result[framework][model_arch]["error"] = str(e)
+        return None
 
-        if config_overrides is not None:
-            for k, v in config_overrides.items():
-                setattr(tiny_config, k, v)
+    if config_overrides is not None:
+        for k, v in config_overrides.items():
+            setattr(tiny_config, k, v)
 
+    try:
         model = model_arch(config=tiny_config)
         model.save_pretrained(model_output_folder)
         model.from_pretrained(model_output_folder)
-
     except Exception as e:
-        return e
+        result[framework][model_arch]["error"] = f"Exception occurs while building the model: {str(e)}"
+        return None
 
     return model
 
@@ -505,8 +512,9 @@ def build(config_class, to_create, output_folder):
             result["crop_pct"] = crop_pct
 
     for pytorch_arch in to_create["pytorch"]:
-        model = build_model(config_class, pytorch_arch, output_folder=output_folder, processors=processors, result=result)
-        result["pytorch"][pytorch_arch] = model
+        result["pytorch"][pytorch_arch] = {}
+        model = build_model(config_class, pytorch_arch, output_folder=output_folder, result=result)
+        result["pytorch"][pytorch_arch]["model"] = model
 
     # TODO: remove
     return result
