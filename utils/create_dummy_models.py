@@ -378,7 +378,7 @@ def build_processor(config_class, processor_class):
     return processor
 
 
-def convert_processors(processors, output_folder):
+def convert_processors(processors, output_folder, result):
     """Reduce `vocab_size` in tokenizer(s)"""
     tokenizers = []
     feature_extractors = []
@@ -405,6 +405,7 @@ def convert_processors(processors, output_folder):
                 try:
                     fast_tokenizer = convert_tokenizer(tokenizer)
                 except Exception as e:
+                    result["warning"].append(f"Failed to convert the fast tokenizer for {fast_tokenizer.__class__.__name__}: {e}")
                     continue
         elif slow_tokenizer is None:
             slow_tokenizer = tokenizer
@@ -414,12 +415,14 @@ def convert_processors(processors, output_folder):
         try:
             fast_tokenizer.save_pretrained(output_folder)
         except Exception as e:
+            result["warnings"].append(f"Failed to save the fast tokenizer for {fast_tokenizer.__class__.__name__}: {e}")
             fast_tokenizer = None
 
         if fast_tokenizer:
             try:
                 slow_tokenizer = AutoTokenizer.from_pretrained(output_folder, use_fast=False)
             except Exception as e:
+                result["warnings"].append(f"Failed to load the slow tokenizer saved from {fast_tokenizer.__class__.__name__}: {e}")
                 pass
 
     elif slow_tokenizer:
@@ -478,7 +481,8 @@ def build_model(config_class, model_arch, output_folder, result=None):
 def build(config_class, to_create, output_folder):
 
     result = {k: {} for k in to_create}
-    result["error"] = {}
+    result["error"] = None
+    result["warning"] = []
 
     # build processors
     processor_classes = to_create["processor"]
@@ -494,7 +498,7 @@ def build(config_class, to_create, output_folder):
     # Reduce the vocab size in tokenizer(s)
     processors = list(result["processor"].values())
     processor_output_folder = os.path.join(output_folder, "processors")
-    processors = convert_processors(processors, processor_output_folder)
+    processors = convert_processors(processors, processor_output_folder, result)
     # update `result`
     result["processor"] = {type(p): p for p in processors}
 
