@@ -635,6 +635,13 @@ if __name__ == "__main__":
         print("====================")
 
     # serialization
+    for c, result in results.items():
+        for framework in ["pytorch", "tensorflow", "flax"]:
+            if framework in result:
+                for model_arch in result[framework]:
+                    if result[framework][model_arch]["model"] is not None:
+                        result[framework][model_arch]["model"] = result[framework][model_arch]["model"].__class__.__name__
+
     _results = copy.deepcopy(results)
     for c, result in results.items():
         _results[c.__name__] = _results[c]
@@ -647,8 +654,6 @@ if __name__ == "__main__":
                 for model_arch in result[framework]:
                     _results[c.__name__][framework][model_arch.__name__] = _results[c.__name__][framework][model_arch]
                     del _results[c.__name__][framework][model_arch]
-                    if result[framework][model_arch]["model"] is not None:
-                        _results[c.__name__][framework][model_arch.__name__]["model"] = result[framework][model_arch]["model"].__class__.__name__
 
     # TODO: remove
     with open("dummy_creation.json", "w") as fp:
