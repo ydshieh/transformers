@@ -405,7 +405,7 @@ def convert_processors(processors, output_folder, result):
                 try:
                     fast_tokenizer = convert_tokenizer(tokenizer)
                 except Exception as e:
-                    result["warning"].append(f"Failed to convert the fast tokenizer for {fast_tokenizer.__class__.__name__}: {e}")
+                    result["warnings"].append(f"Failed to convert the fast tokenizer for {fast_tokenizer.__class__.__name__}: {e}")
                     continue
         elif slow_tokenizer is None:
             slow_tokenizer = tokenizer
