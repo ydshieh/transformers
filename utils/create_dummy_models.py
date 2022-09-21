@@ -639,6 +639,13 @@ if __name__ == "__main__":
         for k in result["processor"]:
             _results[c.__name__]["processor"][k.__name__] = str(result["processor"][k])
             del _results[c.__name__]["processor"][k]
+        for framework in ["pytorch", "tensorflow", "flax"]:
+            if framework in result:
+                for model_arch in result[framework]:
+                    _results[c.__name__][framework][model_arch.__name__] = _results[c.__name__][framework][model_arch]
+                    del _results[c.__name__][framework][model_arch]
+                    if result[framework][model_arch]["model"] is not None:
+                        _results[c.__name__][framework][model_arch.__name__]["model"] = result[framework][model_arch]["model"].__class__.__name__
 
     # TODO: remove
     with open("dummy_creation.json", "w") as fp:
