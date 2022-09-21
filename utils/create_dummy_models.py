@@ -1,6 +1,9 @@
 import json
 import os
 import shutil
+import sys
+
+sys.path.append(".")
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
@@ -244,7 +247,7 @@ def get_tiny_config(config_class):
     try:
         print("Importing", model_type_to_module_name(model_type))
         module_name = model_type_to_module_name(model_type)
-        module = importlib.import_module(f".{module_name}.test_modeling_{module_name}", package="tests")
+        module = importlib.import_module(f".models.{module_name}.test_modeling_{module_name}", package="tests")
         model_tester_class = getattr(module, f"{camel_case_model_name}ModelTester", None)
     except ModuleNotFoundError as e:
         print(f"Tiny config not created for {model_type}: cannot find the testing module from the model name.")
