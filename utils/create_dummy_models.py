@@ -471,7 +471,7 @@ def build(config_class, to_create, output_folder):
 
     result = {k: {} for k in to_create}
     result["error"] = None
-    result["warning"] = []
+    result["warnings"] = []
 
     # build processors
     processor_classes = to_create["processor"]
