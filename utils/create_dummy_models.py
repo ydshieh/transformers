@@ -436,17 +436,14 @@ def convert_processors(processors, output_folder, result):
     return processors
 
 
-def build_model(config_class, model_arch, output_folder, result=None):
+def build_model(config_class, model_arch, output_folder, result):
     """Create and save a model for `model_arch`.
     """
     # Get framework-agnostic architecture name. Used to save all PT/TF/Flax models into the same directory/repo.
-    framework = "pytorch"
     arch_name = model_arch.__name__
     if arch_name.startswith("TF"):
-        framework = "tensorflow"
         arch_name = arch_name[2:]
     elif arch_name.startswith("Flax"):
-        framework = "flax"
         arch_name = arch_name[4:]
 
     processor_output_folder = os.path.join(output_folder, "processors")
@@ -457,23 +454,15 @@ def build_model(config_class, model_arch, output_folder, result=None):
 
     config_overrides = {k: v for k, v in result.items() if v is not None and k in ["vocab_size", "image_size"]}
 
-    try:
-        tiny_config = get_tiny_config(config_class)
-    except Exception as e:
-        result[framework][model_arch]["error"] = str(e)
-        return None
+    tiny_config = get_tiny_config(config_class)
 
     if config_overrides is not None:
         for k, v in config_overrides.items():
             setattr(tiny_config, k, v)
 
-    try:
-        model = model_arch(config=tiny_config)
-        model.save_pretrained(model_output_folder)
-        model.from_pretrained(model_output_folder)
-    except Exception as e:
-        result[framework][model_arch]["error"] = f"Exception occurs while building the model: {str(e)}"
-        return None
+    model = model_arch(config=tiny_config)
+    model.save_pretrained(model_output_folder)
+    model.from_pretrained(model_output_folder)
 
     return model
 
@@ -520,7 +509,12 @@ def build(config_class, to_create, output_folder):
 
     for pytorch_arch in to_create["pytorch"]:
         result["pytorch"][pytorch_arch] = {}
-        model = build_model(config_class, pytorch_arch, output_folder=output_folder, result=result)
+        try:
+            model = build_model(config_class, pytorch_arch, output_folder=output_folder, result=result)
+        except Exception as e:
+            model = None
+            result["pytorch"][pytorch_arch]["error"] = f"Failed to build the model: {e}"
+
         result["pytorch"][pytorch_arch]["model"] = model
 
     # TODO: remove
