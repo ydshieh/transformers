@@ -311,6 +311,22 @@ def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
     return new_tokenizer
 
 
+def convert_feature_extractor(feature_extractor, tiny_config):
+
+    kwargs = {}
+    if hasattr(tiny_config, "image_size"):
+        kwargs["size"] = tiny_config.image_size
+        kwargs["crop_size"] = tiny_config.image_size
+    # Speech2TextModel specific.
+    if hasattr(tiny_config, "input_feat_per_channel"):
+        kwargs["feature_size"] = tiny_config.input_feat_per_channel
+        kwargs["num_mel_bins"] = tiny_config.input_feat_per_channel
+
+    feature_extractor = feature_extractor.__class__(**kwargs)
+
+    return feature_extractor
+
+
 def build_processor(config_class, processor_class):
     """Create a processor for `processor_class`.
 
@@ -385,7 +401,7 @@ def build_processor(config_class, processor_class):
     return processor
 
 
-def convert_processors(processors, output_folder, result):
+def convert_processors(processors, tiny_config, output_folder, result):
     """Reduce `vocab_size` in tokenizer(s)"""
     tokenizers = []
     feature_extractors = []
@@ -435,6 +451,9 @@ def convert_processors(processors, output_folder, result):
     elif slow_tokenizer:
         slow_tokenizer.save_pretrained(output_folder)
 
+    # update feature extractors using the tiny config
+    feature_extractors = [convert_feature_extractor(p, tiny_config) for p in feature_extractors]
+
     processors = [fast_tokenizer, slow_tokenizer] + feature_extractors
     processors = [p for p in processors if p is not None]
     for p in processors:
@@ -443,7 +462,7 @@ def convert_processors(processors, output_folder, result):
     return processors
 
 
-def build_model(config_class, model_arch, output_folder, config_overrides=None):
+def build_model(config_class, model_arch, tiny_config, output_folder):
     """Create and save a model for `model_arch`.
     """
     # Get framework-agnostic architecture name. Used to save all PT/TF/Flax models into the same directory/repo.
@@ -458,12 +477,6 @@ def build_model(config_class, model_arch, output_folder, config_overrides=None):
     # copy the (same set of) processors to the model specific folder
     if os.path.isdir(processor_output_folder):
         shutil.copytree(processor_output_folder, model_output_folder, dirs_exist_ok=True)
-
-    tiny_config = get_tiny_config(config_class)
-
-    if config_overrides is not None:
-        for k, v in config_overrides.items():
-            setattr(tiny_config, k, v)
 
     model = model_arch(config=tiny_config)
     model.save_pretrained(model_output_folder)
@@ -489,10 +502,16 @@ def build(config_class, to_create, output_folder):
         result["error"] = "No processor could be built."
         return result
 
+    try:
+        tiny_config = get_tiny_config(config_class)
+    except Exception as e:
+        result["error"] = str(e)
+        return result
+
     # Reduce the vocab size in tokenizer(s)
     processors = list(result["processor"].values())
     processor_output_folder = os.path.join(output_folder, "processors")
-    processors = convert_processors(processors, processor_output_folder, result)
+    processors = convert_processors(processors, tiny_config, processor_output_folder, result)
     # update `result`
     result["processor"] = {type(p): p for p in processors}
 
@@ -504,20 +523,15 @@ def build(config_class, to_create, output_folder):
         if isinstance(processor, PreTrainedTokenizerBase):
             vocab_size = processor.vocab_size
             result["vocab_size"] = vocab_size
-        elif isinstance(processor, ImageFeatureExtractionMixin):
-            image_size = getattr(processor, "size", None)
-            crop_size = getattr(processor, "crop_size", None)
-            crop_pct = getattr(processor, "crop_pct", None)
-            result["image_size"] = image_size
-            result["crop_size"] = crop_size
-            result["crop_pct"] = crop_pct
-
-    config_overrides = {k: v for k, v in result.items() if k in ["vocab_size", "image_size"] and v is not None}
+    config_overrides = {k: v for k, v in result.items() if k in ["vocab_size"] and v is not None}
+    # Update `vocab_size`
+    for k, v in config_overrides.items():
+        setattr(tiny_config, k, v)
 
     for pytorch_arch in to_create["pytorch"]:
         result["pytorch"][pytorch_arch] = {}
         try:
-            model = build_model(config_class, pytorch_arch, output_folder=output_folder, config_overrides=config_overrides)
+            model = build_model(config_class, pytorch_arch, tiny_config, output_folder=output_folder)
         except Exception as e:
             model = None
             result["pytorch"][pytorch_arch]["error"] = f"Failed to build the model: {e}"
