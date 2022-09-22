@@ -130,6 +130,7 @@ unexportable_model_architectures = [
     # "TFFunnelForMultipleChoice",
 ]
 
+tokenizers_without_fast_version = ["MarianTokenizer"]
 non_convertable_fast_tokenizers = ["RoFormerTokenizerFast", "SplinterTokenizerFast"]
 
 # Define the PyTorch and TensorFlow mappings
