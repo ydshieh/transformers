@@ -1,3 +1,4 @@
+import inspect
 import json
 import os
 import shutil
@@ -244,10 +245,16 @@ def get_tiny_config(config_class):
     model_type = config_class.model_type
     camel_case_model_name = config_class.__name__.split("Config")[0]
 
+    # Deal with special cases like `data2vec-vision` and `donut-swin` etc.
+    config_source_file = inspect.getsourcefile(config_class)
+    # The modeling file name without prefix and postfix
+    modeling_name = config_source_file.split("/")[-1].replace("configuration_", "").replace(".py", "")
+
     try:
         print("Importing", model_type_to_module_name(model_type))
         module_name = model_type_to_module_name(model_type)
-        module = importlib.import_module(f".models.{module_name}.test_modeling_{module_name}", package="tests")
+        assert modeling_name.startswith(module_name)
+        module = importlib.import_module(f".models.{module_name}.test_modeling_{modeling_name}", package="tests")
         model_tester_class = getattr(module, f"{camel_case_model_name}ModelTester", None)
     except ModuleNotFoundError as e:
         print(f"Tiny config not created for {model_type}: cannot find the testing module from the model name.")
