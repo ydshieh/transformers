@@ -26,6 +26,8 @@ if not is_torch_available():
 if not is_tf_available():
     raise ValueError("Please install TensorFlow.")
 
+TARGET_VOCAB_SIZE = 1024
+
 import copy
 import importlib
 import os
@@ -305,7 +307,7 @@ def get_config_class_from_processor_class(processor_class):
 
 def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
 
-    new_tokenizer = tokenizer_fast.train_new_from_iterator(training_ds["text"], 1024)
+    new_tokenizer = tokenizer_fast.train_new_from_iterator(training_ds["text"], TARGET_VOCAB_SIZE)
     new_tokenizer(testing_ds["text"])
 
     return new_tokenizer
@@ -431,7 +433,10 @@ def convert_processors(processors, tiny_config, output_folder, result):
             if fast_tokenizer is None:
                 fast_tokenizer = tokenizer
                 try:
-                    fast_tokenizer = convert_tokenizer(tokenizer)
+                    # Wav2Vec2ForCTC , ByT5Tokenizer etc. all are already small enough and have no fast version that can
+                    # be retrained
+                    if fast_tokenizer.vocab_size > TARGET_VOCAB_SIZE:
+                        fast_tokenizer = convert_tokenizer(tokenizer)
                 except Exception as e:
                     result["warnings"].append(f"Failed to convert the fast tokenizer for {fast_tokenizer.__class__.__name__}: {e}")
                     continue
