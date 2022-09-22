@@ -40,6 +40,8 @@ import torch
 from datasets import load_dataset
 from tqdm import tqdm
 
+from transformers import LayoutLMv3TokenizerFast
+
 from transformers import (
     CONFIG_MAPPING,
     FEATURE_EXTRACTOR_MAPPING,
@@ -127,6 +129,8 @@ unexportable_model_architectures = [
     # "FunnelForMultipleChoice",
     # "TFFunnelForMultipleChoice",
 ]
+
+non_convertable_fast_tokenizers = ["RoFormerTokenizerFast", "SplinterTokenizerFast"]
 
 # Define the PyTorch and TensorFlow mappings
 pytorch_arch_mappings = [
@@ -308,7 +312,10 @@ def get_config_class_from_processor_class(processor_class):
 def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
 
     new_tokenizer = tokenizer_fast.train_new_from_iterator(training_ds["text"], TARGET_VOCAB_SIZE)
-    new_tokenizer(testing_ds["text"])
+
+    # A little validation
+    if not isinstance(new_tokenizer, LayoutLMv3TokenizerFast):
+        new_tokenizer(testing_ds["text"])
 
     return new_tokenizer
 
