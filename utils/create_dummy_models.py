@@ -313,16 +313,21 @@ def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
 
 def convert_feature_extractor(feature_extractor, tiny_config):
 
+    to_convert = False
     kwargs = {}
     if hasattr(tiny_config, "image_size"):
         kwargs["size"] = tiny_config.image_size
         kwargs["crop_size"] = tiny_config.image_size
+        to_convert = True
+
     # Speech2TextModel specific.
     if hasattr(tiny_config, "input_feat_per_channel"):
         kwargs["feature_size"] = tiny_config.input_feat_per_channel
         kwargs["num_mel_bins"] = tiny_config.input_feat_per_channel
+        to_convert = True
 
-    feature_extractor = feature_extractor.__class__(**kwargs)
+    if to_convert:
+        feature_extractor = feature_extractor.__class__(**kwargs)
 
     return feature_extractor
 
@@ -452,7 +457,11 @@ def convert_processors(processors, tiny_config, output_folder, result):
         slow_tokenizer.save_pretrained(output_folder)
 
     # update feature extractors using the tiny config
-    feature_extractors = [convert_feature_extractor(p, tiny_config) for p in feature_extractors]
+    try:
+         feature_extractors = [convert_feature_extractor(p, tiny_config) for p in feature_extractors]
+    except Exception as e:
+         result["warnings"].append(f"Failed to convert feature extractors: {e}")
+         feature_extractors = []
 
     processors = [fast_tokenizer, slow_tokenizer] + feature_extractors
     processors = [p for p in processors if p is not None]
