@@ -424,6 +424,22 @@ def main():
 
     model.resize_token_embeddings(len(tokenizer))
 
+    # ====================================================================================================
+    # # Not working for the checkpoint `https://huggingface.co/allenai/led-large-16384`
+
+    # # perturbing the bos token's embedding, see
+    # #   https://github.com/huggingface/transformers/issues/18190#issuecomment-1218408325
+    # #   https://github.com/ratishsp/transformers-fix/commit/fa06f45739a9c479efb3b6edbadf345838afb2bf
+    #
+    # import torch
+    # from transformers.modeling_utils import _load_state_dict_into_model
+    #
+    # d = model.state_dict()
+    # d["led.decoder.embed_tokens.weight"][0] = d["led.decoder.embed_tokens.weight"][0] + torch.randn(1024)
+    #
+    # _load_state_dict_into_model(model, d, "led.")
+    # ====================================================================================================
+
     if model.config.decoder_start_token_id is None and isinstance(tokenizer, (MBartTokenizer, MBartTokenizerFast)):
         if isinstance(tokenizer, MBartTokenizer):
             model.config.decoder_start_token_id = tokenizer.lang_code_to_id[data_args.lang]
@@ -511,6 +527,15 @@ def main():
             f"`{model.__class__.__name__}`. This will lead to loss being calculated twice and will take up more memory"
         )
 
+    def get_global_attn(x):
+
+        if x == tokenizer.cls_token_id:
+            return 1
+        elif x == tokenizer.pad_token_id:
+            return -1
+        else:
+            return 0
+
     def preprocess_function(examples):
         # remove pairs where at least one record is None
 
@@ -534,6 +559,22 @@ def main():
             ]
 
         model_inputs["labels"] = labels["input_ids"]
+
+        # ================================================================================
+        # Originally, the `labels` are of the form: </s> <s> ..., which causes trouble for finetuning some checkpoints.
+        # Let's try to remove <s> (`bos` token) in `labels`, i.e. keep only the decoder_start_token (here </s>).
+
+        model_inputs["labels"] = [x[1:] for x in model_inputs["labels"]]
+        # ================================================================================
+
+        # # Added by the user `ratishsp` in:
+        # #   https://github.com/ratishsp/transformers-fix/commit/24b8287283764877ebf8b75058d12e5a7592877e
+        # model_inputs["global_attention_mask"] = [[1 if y == tokenizer.cls_token_id else 0 for y in x] for x in model_inputs["input_ids"]]
+
+        # Added by the user `ydshieh`: correct `global_attention_mask`
+        if model.__class__.__name__.startswith("LED"):
+            model_inputs["global_attention_mask"] = [[get_global_attn(y) for y in x] for x in model_inputs["input_ids"]]
+
         return model_inputs
 
     if training_args.do_train:
@@ -623,6 +664,28 @@ def main():
 
         # Some simple post-processing
         decoded_preds, decoded_labels = postprocess_text(decoded_preds, decoded_labels)
+
+        # ================================================================================
+        # Save generations from evaluation
+        import json
+
+        try:
+            with open(os.path.join(training_args.output_dir, "generations.json"), "r") as fp:
+                gen = json.load(fp)
+        except:
+            gen = {}
+
+        pred_tokens = [tokenizer.convert_ids_to_tokens(pred) for pred in preds]
+
+        key = str(len(gen))
+        gen[key] = {}
+        gen[key]["labels"] = decoded_labels
+        gen[key]["preds"] = decoded_preds
+        gen[key]["pred_tokens"] = pred_tokens
+
+        with open(os.path.join(training_args.output_dir, "generations.json"), "w") as fp:
+            json.dump(gen, fp, ensure_ascii=False, indent=4)
+        # ================================================================================
 
         result = metric.compute(predictions=decoded_preds, references=decoded_labels, use_stemmer=True)
         result = {k: round(v * 100, 4) for k, v in result.items()}

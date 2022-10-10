@@ -961,7 +961,7 @@ def log_metrics(self, split, metrics):
         print(f"  {key: <{k_width}} = {metrics_formatted[key]:>{v_width}}")
 
 
-def save_metrics(self, split, metrics, combined=True):
+def save_metrics(self, split, metrics, combined=True, postfix=""):
     """
     Save metrics into a json file for that split, e.g. `train_results.json`.
 
@@ -982,12 +982,12 @@ def save_metrics(self, split, metrics, combined=True):
     if not self.is_world_process_zero():
         return
 
-    path = os.path.join(self.args.output_dir, f"{split}_results.json")
+    path = os.path.join(self.args.output_dir, f"{split}_results{postfix}.json")
     with open(path, "w") as f:
         json.dump(metrics, f, indent=4, sort_keys=True)
 
     if combined:
-        path = os.path.join(self.args.output_dir, "all_results.json")
+        path = os.path.join(self.args.output_dir, f"all_results{postfix}.json")
         if os.path.exists(path):
             with open(path, "r") as f:
                 all_metrics = json.load(f)

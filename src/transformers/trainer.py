@@ -2039,6 +2039,13 @@ class Trainer:
 
             self.log(logs)
 
+            train_metrics = {}
+            train_metrics["global_step"] = self.state.global_step
+            train_metrics["train_loss"] = logs["loss"]
+
+            self.log_metrics("train", train_metrics)
+            self.save_metrics("train", train_metrics, postfix=f"_step_{self.state.global_step}")
+
         metrics = None
         if self.control.should_evaluate:
             if isinstance(self.eval_dataset, dict):
@@ -2055,6 +2062,12 @@ class Trainer:
         if self.control.should_save:
             self._save_checkpoint(model, trial, metrics=metrics)
             self.control = self.callback_handler.on_save(self.args, self.state, self.control)
+
+            self.log_metrics("eval", metrics)
+            self.save_metrics("eval", metrics, postfix=f"_step_{self.state.global_step}")
+
+            self.save_model()
+            self.save_state()
 
     def _load_rng_state(self, checkpoint):
         # Load RNG states from `checkpoint`
