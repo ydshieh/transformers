@@ -9,12 +9,11 @@ sys.path.append(".")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 import argparse
-from pathlib import Path
 import collections.abc
 
 from transformers.file_utils import is_tf_available, is_torch_available
 from transformers.feature_extraction_utils import FeatureExtractionMixin
-from transformers.image_utils import ImageFeatureExtractionMixin
+
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase
 from transformers.processing_utils import ProcessorMixin, transformers_module
 from check_config_docstrings import get_checkpoint_from_config_class
@@ -31,56 +30,15 @@ TARGET_VOCAB_SIZE = 1024
 import copy
 import importlib
 import os
-import tempfile
-from collections import OrderedDict
-
-import h5py
-import numpy as np
-import torch
 from datasets import load_dataset
-from tqdm import tqdm
+
 
 from transformers import LayoutLMv3TokenizerFast
 
 from transformers import (
     CONFIG_MAPPING,
     FEATURE_EXTRACTOR_MAPPING,
-    MODEL_FOR_CAUSAL_LM_MAPPING,
-    MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,
-    MODEL_FOR_MASKED_LM_MAPPING,
-    MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
-    MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
-    MODEL_FOR_OBJECT_DETECTION_MAPPING,
-    MODEL_FOR_PRETRAINING_MAPPING,
-    MODEL_FOR_QUESTION_ANSWERING_MAPPING,
-    MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-    MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
-    MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING,
-    MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
-    MODEL_MAPPING,
-    MODEL_WITH_LM_HEAD_MAPPING,
     PROCESSOR_MAPPING,
-    TF_MODEL_FOR_CAUSAL_LM_MAPPING,
-    TF_MODEL_FOR_MASKED_LM_MAPPING,
-    TF_MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
-    TF_MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
-    TF_MODEL_FOR_PRETRAINING_MAPPING,
-    TF_MODEL_FOR_QUESTION_ANSWERING_MAPPING,
-    TF_MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-    TF_MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
-    TF_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
-    TF_MODEL_MAPPING,
-    TF_MODEL_WITH_LM_HEAD_MAPPING,
-    FLAX_MODEL_FOR_CAUSAL_LM_MAPPING,
-    FLAX_MODEL_FOR_MASKED_LM_MAPPING,
-    FLAX_MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
-    FLAX_MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
-    FLAX_MODEL_FOR_PRETRAINING_MAPPING,
-    FLAX_MODEL_FOR_QUESTION_ANSWERING_MAPPING,
-    FLAX_MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-    FLAX_MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
-    FLAX_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
-    FLAX_MODEL_MAPPING,
     TOKENIZER_MAPPING,
     AutoFeatureExtractor,
     AutoTokenizer,
@@ -103,80 +61,18 @@ per_model_type_configuration_attributes = {
     "big_bird": {"num_labels": 1},
 }
 
-unexportable_model_architectures = [
-    # "RoFormerForMultipleChoice",
-    # "TFRoFormerForMultipleChoice",
-    # "TFMobileBertForMultipleChoice",
-    # "MobileBertForMultipleChoice",
-    # "TFDistilBertForMultipleChoice",
-    # "DistilBertForMultipleChoice",
-    # "TFAlbertForMultipleChoice",
-    # "AlbertForMultipleChoice",
-    # "TFMPNetForMultipleChoice",
-    # "MPNetForMultipleChoice",
-    # "TFLongformerForMultipleChoice",
-    # "LongformerForMultipleChoice",
-    # "TFRobertaForMultipleChoice",
-    # "RobertaForMultipleChoice",
-    # "SqueezeBertForMultipleChoice",
-    # "TFSqueezeBertForMultipleChoice",
-    # "BertForMultipleChoice",
-    # "TFBertForMultipleChoice",
-    # "XLNetForMultipleChoice",
-    # "TFXLNetForMultipleChoice",
-    # "ElectraForMultipleChoice",
-    # "TFElectraForMultipleChoice",
-    # "FunnelForMultipleChoice",
-    # "TFFunnelForMultipleChoice",
-]
+unexportable_model_architectures = []
 
 tokenizers_without_fast_version = ["MarianTokenizer"]
 non_convertable_fast_tokenizers = ["RoFormerTokenizerFast", "SplinterTokenizerFast"]
 
-# Define the PyTorch and TensorFlow mappings
-pytorch_arch_mappings = [
-    MODEL_MAPPING,
-    MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
-    MODEL_FOR_MASKED_LM_MAPPING,
-    MODEL_FOR_PRETRAINING_MAPPING,
-    MODEL_FOR_CAUSAL_LM_MAPPING,
-    MODEL_FOR_IMAGE_CLASSIFICATION_MAPPING,
-    MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
-    MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
-    MODEL_FOR_OBJECT_DETECTION_MAPPING,
-    MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
-    MODEL_WITH_LM_HEAD_MAPPING,
-    MODEL_FOR_TABLE_QUESTION_ANSWERING_MAPPING,
-    MODEL_FOR_QUESTION_ANSWERING_MAPPING,
-    MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-]
+_pytorch_arch_mappings = [x for x in dir(transformers_module) if x.startswith("MODEL_") and x.endswith("_MAPPING") and x != "MODEL_NAMES_MAPPING"]
+_tensorflow_arch_mappings = [x for x in dir(transformers_module) if x.startswith("TF_MODEL_") and x.endswith("_MAPPING")]
+_flax_arch_mappings = [x for x in dir(transformers_module) if x.startswith("FLAX_MODEL_") and x.endswith("_MAPPING")]
 
-tensorflow_arch_mappings = [
-    TF_MODEL_MAPPING,
-    TF_MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
-    TF_MODEL_FOR_MASKED_LM_MAPPING,
-    TF_MODEL_FOR_PRETRAINING_MAPPING,
-    TF_MODEL_FOR_CAUSAL_LM_MAPPING,
-    TF_MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
-    TF_MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
-    TF_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
-    TF_MODEL_WITH_LM_HEAD_MAPPING,
-    TF_MODEL_FOR_QUESTION_ANSWERING_MAPPING,
-    TF_MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-]
-
-flax_arch_mappings = [
-    FLAX_MODEL_FOR_CAUSAL_LM_MAPPING,
-    FLAX_MODEL_FOR_MASKED_LM_MAPPING,
-    FLAX_MODEL_FOR_MULTIPLE_CHOICE_MAPPING,
-    FLAX_MODEL_FOR_NEXT_SENTENCE_PREDICTION_MAPPING,
-    FLAX_MODEL_FOR_PRETRAINING_MAPPING,
-    FLAX_MODEL_FOR_QUESTION_ANSWERING_MAPPING,
-    FLAX_MODEL_FOR_SEQ_TO_SEQ_CAUSAL_LM_MAPPING,
-    FLAX_MODEL_FOR_SEQUENCE_CLASSIFICATION_MAPPING,
-    FLAX_MODEL_FOR_TOKEN_CLASSIFICATION_MAPPING,
-    FLAX_MODEL_MAPPING,
-]
+pytorch_arch_mappings = [getattr(transformers_module, x) for x in _pytorch_arch_mappings]
+tensorflow_arch_mappings = [getattr(transformers_module, x) for x in _tensorflow_arch_mappings]
+flax_arch_mappings = [getattr(transformers_module, x) for x in _flax_arch_mappings]
 
 
 def get_processor_types_from_config_class(config_class):
