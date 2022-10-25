@@ -510,6 +510,11 @@ def build(config_class, models_to_create, output_dir):
         if error:
             result["tensorflow"][tensorflow_arch.__name__]["error"] = error
 
+    if not result["error"]:
+        del result["error"]
+    if not result["warnings"]:
+        del result["warnings"]
+
     # TODO: continue
     # TODO: remove
     return result
