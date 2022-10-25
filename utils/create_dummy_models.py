@@ -488,8 +488,8 @@ def build(config_class, models_to_create, output_dir):
         pt_arch = getattr(transformers_module, pt_arch_name)
 
         error = None
-        if result["pytorch"].get(pt_arch.__name__, None) is not None:
-            ckpt = output_dir(output_dir, pt_arch)
+        if pytorch_arch.__name__ in result["pytorch"] and result["pytorch"][pytorch_arch.__name__]["checkpoint"] is not None:
+            ckpt = get_checkpoint_dir(output_dir, pt_arch)
             # Use the same weights from PyTorch.
             try:
                 model = tensorflow_arch.from_pretrained(ckpt, from_pt=True)
