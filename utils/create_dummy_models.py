@@ -552,9 +552,9 @@ def build_failed_report(results, include_warning=True):
                 failed_results[config_name] = {}
             failed_results[config_name] = {"warnings": results[config_name]["warnings"]}
 
-        for framework in results:
-            for arch_name in results[framework]:
-                if "error" in results[framework][arch_name]:
+        for framework in results[config_name]:
+            for arch_name in results[config_name][framework]:
+                if "error" in results[config_name][framework][arch_name]:
                     if config_name not in failed_results:
                         failed_results[config_name] = {}
                     if framework not in failed_results[config_name]:
