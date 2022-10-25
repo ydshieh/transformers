@@ -380,9 +380,8 @@ def convert_processors(processors, tiny_config, output_folder, result):
     return processors
 
 
-def build_model(config_class, model_arch, tiny_config, output_folder):
-    """Create and save a model for `model_arch`.
-    """
+def get_checkpoint_dir(output_dir, model_arch):
+
     # Get framework-agnostic architecture name. Used to save all PT/TF/Flax models into the same directory/repo.
     arch_name = model_arch.__name__
     if arch_name.startswith("TF"):
@@ -390,27 +389,37 @@ def build_model(config_class, model_arch, tiny_config, output_folder):
     elif arch_name.startswith("Flax"):
         arch_name = arch_name[4:]
 
-    processor_output_folder = os.path.join(output_folder, "processors")
-    model_output_folder = os.path.join(output_folder, arch_name)
-    # copy the (same set of) processors to the model specific folder
-    if os.path.isdir(processor_output_folder):
-        shutil.copytree(processor_output_folder, model_output_folder, dirs_exist_ok=True)
+    return os.path.join(output_dir, arch_name)
+
+
+def build_model(model_arch, tiny_config, output_dir):
+    """Create and save a model for `model_arch`.
+
+    Also copy the set of processors to each model (under the same model type) output folder.
+    """
+
+    checkpoint_dir = get_checkpoint_dir(output_dir, model_arch)
+
+    processor_output_dir = os.path.join(output_dir, "processors")
+    # copy the (same set of) processors (for a model type) to the model arch. specific folder
+    if os.path.isdir(processor_output_dir):
+        shutil.copytree(processor_output_dir, checkpoint_dir, dirs_exist_ok=True)
 
     model = model_arch(config=tiny_config)
-    model.save_pretrained(model_output_folder)
-    model.from_pretrained(model_output_folder)
+    model.save_pretrained(checkpoint_dir)
+    model.from_pretrained(checkpoint_dir)
 
     return model
 
 
-def build(config_class, to_create, output_folder):
+def build(config_class, models_to_create, output_dir):
 
-    result = {k: {} for k in to_create}
+    result = {k: {} for k in models_to_create}
     result["error"] = None
     result["warnings"] = []
 
     # build processors
-    processor_classes = to_create["processor"]
+    processor_classes = models_to_create["processor"]
     for processor_class in processor_classes:
         processor = build_processor(config_class, processor_class)
         if processor is not None:
@@ -429,7 +438,7 @@ def build(config_class, to_create, output_folder):
 
     # Reduce the vocab size in tokenizer(s)
     processors = list(result["processor"].values())
-    processor_output_folder = os.path.join(output_folder, "processors")
+    processor_output_folder = os.path.join(output_dir, "processors")
     processors = convert_processors(processors, tiny_config, processor_output_folder, result)
     # update `result`
     result["processor"] = {type(p).__name__: p.__class__.__name__ for p in processors}
@@ -447,39 +456,53 @@ def build(config_class, to_create, output_folder):
     for k, v in config_overrides.items():
         setattr(tiny_config, k, v)
 
-    for pytorch_arch in to_create["pytorch"]:
+    for pytorch_arch in models_to_create["pytorch"]:
         result["pytorch"][pytorch_arch.__name__] = {}
+        error = None
         try:
-            model = build_model(config_class, pytorch_arch, tiny_config, output_folder=output_folder)
+            model = build_model(pytorch_arch, tiny_config, output_dir=output_dir)
         except Exception as e:
             model = None
-            result["pytorch"][pytorch_arch.__name__]["error"] = f"Failed to build the model: {e}"
+            error = f"Failed to create the pytorch model for {pytorch_arch}: {e}"
 
         result["pytorch"][pytorch_arch.__name__]["model"] = model.__class__.__name__ if model is not None else None
+        result["pytorch"][pytorch_arch.__name__]["checkpoint"] = output_dir(output_dir, pytorch_arch) if model is not None else None
+        if error:
+            result["pytorch"][pytorch_arch.__name__]["error"] = error
 
-    # TODO: remove
-    return result
+    for tensorflow_arch in to_create["tensorflow"]:
+        # Make PT/TF weights compatible
+        pt_arch_name = tensorflow_arch.__name__[2:]  # Remove `TF`
+        pt_arch = getattr(transformers_module, pt_arch_name)
+
+        error = None
+        if result["pytorch"].get(pt_arch.__name__, None) is not None:
+            ckpt = output_dir(output_dir, pt_arch)
+            # Use the same weights from PyTorch.
+            try:
+                model = tensorflow_arch.from_pretrained(ckpt, from_pt=True)
+                model.save_pretrained(ckpt)
+            except Exception as e:
+                # TODO: Improve
+                # Conversion may fail. One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`
+                # yet. Let's not create a model with different weights to avoid confusion (for now).
+                model = None
+                error = f"Failed to convert the pytorch model to the tensorflow model for {pt_arch}: {e}"
+        else:
+            try:
+                model = build_model(tensorflow_arch, tiny_config, output_dir=output_dir)
+            except Exception as e:
+                model = None
+                error = f"Failed to create the tensorflow model for {tensorflow_arch}: {e}"
+
+        result["tensorflow"][tensorflow_arch.__name__]["model"] = model.__class__.__name__ if model is not None else None
+        result["tensorflow"][tensorflow_arch.__name__]["checkpoint"] = output_dir(output_dir, tensorflow_arch) if model is not None else None
+        if error:
+            result["tensorflow"][tensorflow_arch.__name__]["error"] = error
 
     # TODO: continue
-
-    # for tensorflow_arch in to_create["tensorflow"]:
-    #     # Make PT/TF weights compatible
-    #     pt_arch_name = tensorflow_arch.__name__[2:]  # Remove `TF`
-    #     pt_arch = getattr(transformers_module, pt_arch_name)
-    #     if isinstance(result["pytorch"].get(pt_arch, None), torch.nn.Module):
-    #         ckpt = os.path.join(output_folder, pt_arch_name)
-    #         # Use the same weights from PyTorch.
-    #         try:
-    #             model = tensorflow_arch.from_pretrained(ckpt, from_pt=True)
-    #             model.save_pretrained(ckpt)
-    #         except:
-    #             # Conversion may fail. One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`
-    #             # yet.
-    #             model = None
-    #     else:
-    #         model = build_model(config_class, tensorflow_arch, output_folder=output_folder, processors=processors)
-    #
-    #     result["tensorflow"][tensorflow_arch] = model
+    # TODO: remove
+    return result
 
     # for flax_arch in to_create["flax"]:
     #
@@ -565,9 +588,9 @@ if __name__ == "__main__":
 
     results = {}
     # TODO: remove `[:5]`
-    for c, _to_create in list(to_create.items())[:5]:
+    for c, models_to_create in list(to_create.items())[:5]:
         print(c)
-        result = build(c, _to_create, output_folder=os.path.join(args.output_path, c.model_type))
+        result = build(c, models_to_create, output_dir=os.path.join(args.output_path, c.model_type))
         results[c.__name__] = result
         print("====================")
 
