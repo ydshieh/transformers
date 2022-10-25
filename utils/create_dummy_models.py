@@ -311,7 +311,14 @@ def build_processor(config_class, processor_class):
 
 
 def convert_processors(processors, tiny_config, output_folder, result):
-    """Reduce `vocab_size` in tokenizer(s)"""
+    """Change a processor to work with smaller inputs.
+
+    For tokenizers, we try to reduce their vocabulary size.
+
+    For feature extractor, we use smaller image size or change
+    other attributes using the values from `tiny_config`. See `convert_feature_extractor`.
+    """
+
     tokenizers = []
     feature_extractors = []
     for processor in processors:
@@ -345,30 +352,37 @@ def convert_processors(processors, tiny_config, output_folder, result):
         elif slow_tokenizer is None:
             slow_tokenizer = tokenizer
 
+    # Make sure the fast tokenizer can be saved
     if fast_tokenizer:
-        slow_tokenizer = None
         try:
             fast_tokenizer.save_pretrained(output_folder)
         except Exception as e:
             result["warnings"].append(f"Failed to save the fast tokenizer for {fast_tokenizer.__class__.__name__}: {e}")
             fast_tokenizer = None
 
-        if fast_tokenizer:
-            try:
-                slow_tokenizer = AutoTokenizer.from_pretrained(output_folder, use_fast=False)
-            except Exception as e:
-                result["warnings"].append(f"Failed to load the slow tokenizer saved from {fast_tokenizer.__class__.__name__}: {e}")
-                pass
+    # Make sure the slow tokenizer (if any) corresponds to the fast version (as it might be converted above)
+    if fast_tokenizer:
+        try:
+            slow_tokenizer = AutoTokenizer.from_pretrained(output_folder, use_fast=False)
+        except Exception as e:
+            result["warnings"].append(f"Failed to load the slow tokenizer saved from {fast_tokenizer.__class__.__name__}: {e}")
+            # Let's just keep the fast version
+            slow_tokenizer = None
 
-    elif slow_tokenizer:
-        slow_tokenizer.save_pretrained(output_folder)
+    # If the fast version can't be created and saved, let's use the slow version
+    if not fast_tokenizer and slow_tokenizer:
+        try:
+            slow_tokenizer.save_pretrained(output_folder)
+        except Exception as e:
+            result["warnings"].append(f"Failed to save the slow tokenizer for {slow_tokenizer.__class__.__name__}: {e}")
+            slow_tokenizer = None
 
     # update feature extractors using the tiny config
     try:
-         feature_extractors = [convert_feature_extractor(p, tiny_config) for p in feature_extractors]
+        feature_extractors = [convert_feature_extractor(p, tiny_config) for p in feature_extractors]
     except Exception as e:
-         result["warnings"].append(f"Failed to convert feature extractors: {e}")
-         feature_extractors = []
+        result["warnings"].append(f"Failed to convert feature extractors: {e}")
+        feature_extractors = []
 
     processors = [fast_tokenizer, slow_tokenizer] + feature_extractors
     processors = [p for p in processors if p is not None]
