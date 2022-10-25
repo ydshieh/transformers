@@ -25,6 +25,7 @@ if not is_torch_available():
 if not is_tf_available():
     raise ValueError("Please install TensorFlow.")
 
+FRAMEWORKS = ["pytorch", "tensorflow", "flax"]
 TARGET_VOCAB_SIZE = 1024
 
 import importlib
@@ -553,6 +554,8 @@ def build_failed_report(results, include_warning=True):
             failed_results[config_name] = {"warnings": results[config_name]["warnings"]}
 
         for framework in results[config_name]:
+            if framework not in FRAMEWORKS:
+                continue
             for arch_name in results[config_name][framework]:
                 if "error" in results[config_name][framework][arch_name]:
                     if config_name not in failed_results:
