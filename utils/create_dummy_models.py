@@ -431,7 +431,7 @@ def build(config_class, to_create, output_folder):
     processor_output_folder = os.path.join(output_folder, "processors")
     processors = convert_processors(processors, tiny_config, processor_output_folder, result)
     # update `result`
-    result["processor"] = {type(p): p for p in processors}
+    result["processor"] = {type(p).__name__: p.__class__.__name__ for p in processors}
 
     if len(result["processor"]) == 0:
         result["error"] = "No processor could be converted."
@@ -447,14 +447,14 @@ def build(config_class, to_create, output_folder):
         setattr(tiny_config, k, v)
 
     for pytorch_arch in to_create["pytorch"]:
-        result["pytorch"][pytorch_arch] = {}
+        result["pytorch"][pytorch_arch.__name__] = {}
         try:
             model = build_model(config_class, pytorch_arch, tiny_config, output_folder=output_folder)
         except Exception as e:
             model = None
             result["pytorch"][pytorch_arch]["error"] = f"Failed to build the model: {e}"
 
-        result["pytorch"][pytorch_arch]["model"] = model
+        result["pytorch"][pytorch_arch.__name__]["model"] = model.__class__.__name__ if model is not None else None
 
     # TODO: remove
     return result
@@ -562,39 +562,16 @@ if __name__ == "__main__":
         for c in final_config_classes
     }
 
-    # TODO: (to be continued)
-
     results = {}
-    for c, _to_create in list(to_create.items())[:]:
+    # TODO: remove `[:5]`
+    for c, _to_create in list(to_create.items())[:5]:
         print(c)
         result = build(c, _to_create, output_folder=os.path.join(args.output_path, c.model_type))
-        results[c] = result
+        results[c.__name__] = result
         print("====================")
 
-    # serialization
-    for c, result in results.items():
-        for framework in ["pytorch", "tensorflow", "flax"]:
-            if framework in result:
-                for model_arch in result[framework]:
-                    if result[framework][model_arch]["model"] is not None:
-                        result[framework][model_arch]["model"] = result[framework][model_arch]["model"].__class__.__name__
-
-    _results = copy.deepcopy(results)
-    for c, result in results.items():
-        _results[c.__name__] = _results[c]
-        del _results[c]
-        for k in result["processor"]:
-            _results[c.__name__]["processor"][k.__name__] = str(result["processor"][k])
-            del _results[c.__name__]["processor"][k]
-        for framework in ["pytorch", "tensorflow", "flax"]:
-            if framework in result:
-                for model_arch in result[framework]:
-                    _results[c.__name__][framework][model_arch.__name__] = _results[c.__name__][framework][model_arch]
-                    del _results[c.__name__][framework][model_arch]
-
-    # TODO: remove
-    with open("dummy_creation.json", "w") as fp:
-        json.dump(_results, fp, indent=4)
+    with open("tiny_model_creation_report.json", "w") as fp:
+        json.dump(results, fp, indent=4)
 
     # TODO: remove
     exit(0)
