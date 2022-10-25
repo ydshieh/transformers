@@ -452,7 +452,7 @@ def build(config_class, to_create, output_folder):
             model = build_model(config_class, pytorch_arch, tiny_config, output_folder=output_folder)
         except Exception as e:
             model = None
-            result["pytorch"][pytorch_arch]["error"] = f"Failed to build the model: {e}"
+            result["pytorch"][pytorch_arch.__name__]["error"] = f"Failed to build the model: {e}"
 
         result["pytorch"][pytorch_arch.__name__]["model"] = model.__class__.__name__ if model is not None else None
 
