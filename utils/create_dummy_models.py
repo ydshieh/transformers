@@ -413,6 +413,18 @@ def build_model(model_arch, tiny_config, output_dir):
 
 
 def build(config_class, models_to_create, output_dir):
+    """Create all models for a certain model type.
+
+    Args:
+        config_class (`PretrainedConfig`):
+            A subclass of `PretrainedConfig` that is used to determine `models_to_create`.
+        models_to_create (`dict`):
+            A dictionary containing the processor/model classes that we want to create the instances. These models are
+            of the same model type which is associated to `config_class`.
+        output_dir (`str`):
+            The directory to save all the checkpoints. Each model architecture will be saved in a subdirectory under
+            it. Models in different frameworks with the same architecture will be saved in the same subdirectory.
+    """
 
     result = {k: {} for k in models_to_create}
     result["error"] = None
@@ -466,7 +478,7 @@ def build(config_class, models_to_create, output_dir):
             error = f"Failed to create the pytorch model for {pytorch_arch}: {e}"
 
         result["pytorch"][pytorch_arch.__name__]["model"] = model.__class__.__name__ if model is not None else None
-        result["pytorch"][pytorch_arch.__name__]["checkpoint"] = output_dir(output_dir, pytorch_arch) if model is not None else None
+        result["pytorch"][pytorch_arch.__name__]["checkpoint"] = get_checkpoint_dir(output_dir, pytorch_arch) if model is not None else None
         if error:
             result["pytorch"][pytorch_arch.__name__]["error"] = error
 
@@ -496,7 +508,7 @@ def build(config_class, models_to_create, output_dir):
                 error = f"Failed to create the tensorflow model for {tensorflow_arch}: {e}"
 
         result["tensorflow"][tensorflow_arch.__name__]["model"] = model.__class__.__name__ if model is not None else None
-        result["tensorflow"][tensorflow_arch.__name__]["checkpoint"] = output_dir(output_dir, tensorflow_arch) if model is not None else None
+        result["tensorflow"][tensorflow_arch.__name__]["checkpoint"] = get_checkpoint_dir(output_dir, tensorflow_arch) if model is not None else None
         if error:
             result["tensorflow"][tensorflow_arch.__name__]["error"] = error
 
