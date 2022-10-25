@@ -583,7 +583,7 @@ def build_failed_report(results, include_warning=True):
         if include_warning and "warnings" in results[config_name]:
             if config_name not in failed_results:
                 failed_results[config_name] = {}
-            failed_results[config_name] = {"warnings": results[config_name]["warnings"]}
+            failed_results[config_name]["warnings"] = results[config_name]["warnings"]
 
         for framework in results[config_name]:
             if framework not in FRAMEWORKS:
