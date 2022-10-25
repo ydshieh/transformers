@@ -424,6 +424,7 @@ def build(config_class, to_create, output_folder):
         tiny_config = get_tiny_config(config_class)
     except Exception as e:
         result["error"] = str(e)
+        result["processor"] = {type(p).__name__: p.__class__.__name__ for p in result["processor"]}
         return result
 
     # Reduce the vocab size in tokenizer(s)
