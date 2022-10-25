@@ -3,14 +3,10 @@ import json
 import os
 import shutil
 import sys
-from transformers.utils import logging
-
 
 sys.path.append(".")
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-
-logger = logging.get_logger(__name__)
 
 import argparse
 import collections.abc
@@ -53,6 +49,7 @@ from transformers.models.auto.configuration_auto import AutoConfig, model_type_t
 
 INVALID_ARCH = []
 logging.set_verbosity_error()
+logger = logging.get_logger(__name__)
 
 tokenizer_checkpoint_overrides = {"byt5": "google/byt5-small"}
 ds = load_dataset("wikitext", "wikitext-2-raw-v1")
@@ -186,7 +183,10 @@ def build_processor(config_class, processor_class):
     # to load processor while `processor_class` is an Auto class.
     # For example, see `https://huggingface.co/asapp/sew-tiny-100k`.
     if processor is None and checkpoint is not None and issubclass(processor_class, (PreTrainedTokenizerBase, AutoTokenizer)):
-        config = AutoConfig.from_pretrained(checkpoint)
+        try:
+            config = AutoConfig.from_pretrained(checkpoint)
+        except Exception as e:
+            pass
         assert isinstance(config, config_class)
         tokenizer_class = config.tokenizer_class
         if tokenizer_class is not None:
@@ -253,7 +253,7 @@ def get_tiny_config(config_class):
     modeling_name = config_source_file.split("/")[-1].replace("configuration_", "").replace(".py", "")
 
     try:
-        logger.info("Importing", model_type_to_module_name(model_type))
+        print("Importing", model_type_to_module_name(model_type))
         module_name = model_type_to_module_name(model_type)
         assert modeling_name.startswith(module_name)
         module = importlib.import_module(f".models.{module_name}.test_modeling_{modeling_name}", package="tests")
@@ -663,10 +663,10 @@ if __name__ == "__main__":
     results = {}
     # TODO: remove `[:5]`
     for c, models_to_create in list(to_create.items())[:5]:
-        logger.info(f"Create models for {c.__name__} ...")
+        print(f"Create models for {c.__name__} ...")
         result = build(c, models_to_create, output_dir=os.path.join(args.output_path, c.model_type))
         results[c.__name__] = result
-        logger.info("=" * 40)
+        print("=" * 40)
 
     with open("tiny_model_creation_report.json", "w") as fp:
         json.dump(results, fp, indent=4)
