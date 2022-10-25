@@ -186,13 +186,14 @@ def build_processor(config_class, processor_class):
         try:
             config = AutoConfig.from_pretrained(checkpoint)
         except Exception as e:
-            pass
-        assert isinstance(config, config_class)
-        tokenizer_class = config.tokenizer_class
-        if tokenizer_class is not None:
-            new_processor_class = getattr(transformers_module, tokenizer_class)
-            if new_processor_class != processor_class:
-                processor = build_processor(config_class, new_processor_class)
+            config = None
+        if config is not None:
+            assert isinstance(config, config_class)
+            tokenizer_class = config.tokenizer_class
+            if tokenizer_class is not None:
+                new_processor_class = getattr(transformers_module, tokenizer_class)
+                if new_processor_class != processor_class:
+                    processor = build_processor(config_class, new_processor_class)
 
     if processor is None:
 
@@ -670,8 +671,7 @@ if __name__ == "__main__":
     }
 
     results = {}
-    # TODO: remove `[:5]`
-    for c, models_to_create in list(to_create.items())[:5]:
+    for c, models_to_create in list(to_create.items()):
         print(f"Create models for {c.__name__} ...")
         result = build(c, models_to_create, output_dir=os.path.join(args.output_path, c.model_type))
         results[c.__name__] = result
