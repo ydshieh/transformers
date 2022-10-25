@@ -511,7 +511,7 @@ def build(config_class, models_to_create, output_dir):
         result["pytorch"][pytorch_arch.__name__]["checkpoint"] = get_checkpoint_dir(output_dir, pytorch_arch) if model is not None else None
         if error:
             result["pytorch"][pytorch_arch.__name__]["error"] = error
-            logger.error(f'{pytorch_arch.__name__}: {result["error"]}')
+            logger.error(f'{pytorch_arch.__name__}: {error}')
         else:
             print(f"{pytorch_arch.__name__}: OK")
 
@@ -543,7 +543,7 @@ def build(config_class, models_to_create, output_dir):
         result["tensorflow"][tensorflow_arch.__name__]["checkpoint"] = get_checkpoint_dir(output_dir, tensorflow_arch) if model is not None else None
         if error:
             result["tensorflow"][tensorflow_arch.__name__]["error"] = error
-            logger.error(f'{tensorflow_arch.__name__}: {result["error"]}')
+            logger.error(f'{tensorflow_arch.__name__}: {error}')
         else:
             print(f"{tensorflow_arch.__name__}: OK")
 
