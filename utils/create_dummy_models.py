@@ -495,6 +495,9 @@ def build(config_class, models_to_create, output_dir):
     for k, v in config_overrides.items():
         setattr(tiny_config, k, v)
 
+    if result["warnings"]:
+        logger.warning(result["warnings"])
+
     for pytorch_arch in models_to_create["pytorch"]:
         result["pytorch"][pytorch_arch.__name__] = {}
         error = None
