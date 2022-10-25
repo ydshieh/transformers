@@ -285,6 +285,7 @@ def get_tiny_config(config_class):
 
 
 def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
+    # TODO
 
     new_tokenizer = tokenizer_fast.train_new_from_iterator(training_ds["text"], TARGET_VOCAB_SIZE)
 
@@ -296,6 +297,7 @@ def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
 
 
 def convert_feature_extractor(feature_extractor, tiny_config):
+    # TODO
 
     to_convert = False
     kwargs = {}
@@ -604,7 +606,9 @@ def build_failed_report(results, include_warning=True):
                         failed_results[config_name] = {}
                     if framework not in failed_results[config_name]:
                         failed_results[config_name][framework] = {}
-                    failed_results[config_name][framework][arch_name] = results[framework][arch_name]["error"]
+                    if arch_name not in failed_results[config_name][framework]:
+                        failed_results[config_name][framework][arch_name] = {}
+                    failed_results[config_name][framework][arch_name]["error"] = results[config_name][framework][arch_name]["error"]
 
     return failed_results
 
