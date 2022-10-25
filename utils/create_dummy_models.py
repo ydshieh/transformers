@@ -463,6 +463,7 @@ def build(config_class, models_to_create, output_dir):
 
     if len(result["processor"]) == 0:
         result["error"] = f"No processor could be built for {config_class.__name__}."
+        logger.error(result["error"])
         return result
 
     try:
@@ -471,6 +472,7 @@ def build(config_class, models_to_create, output_dir):
         result["error"] = str(e)
         # Let's still return the processors, so we know they could be built.
         result["processor"] = {type(p).__name__: p.__class__.__name__ for p in result["processor"]}
+        logger.error(result["error"])
         return result
 
     # Convert the processors (reduce vocabulary size, smaller image size, etc.)
@@ -482,6 +484,7 @@ def build(config_class, models_to_create, output_dir):
 
     if len(result["processor"]) == 0:
         result["error"] = f"No processor could be converted for {config_class.__name__}."
+        logger.error(result["error"])
         return result
 
     # Update the config with the properties of the converted processors (smaller vocab size, image size, etc.)
@@ -507,6 +510,9 @@ def build(config_class, models_to_create, output_dir):
         result["pytorch"][pytorch_arch.__name__]["checkpoint"] = get_checkpoint_dir(output_dir, pytorch_arch) if model is not None else None
         if error:
             result["pytorch"][pytorch_arch.__name__]["error"] = error
+            logger.error(f'{pytorch_arch.__name__}: {result["error"]}')
+        else:
+            print(f"{pytorch_arch.__name__}: OK")
 
     for tensorflow_arch in models_to_create["tensorflow"]:
         # Make PT/TF weights compatible
@@ -536,6 +542,9 @@ def build(config_class, models_to_create, output_dir):
         result["tensorflow"][tensorflow_arch.__name__]["checkpoint"] = get_checkpoint_dir(output_dir, tensorflow_arch) if model is not None else None
         if error:
             result["tensorflow"][tensorflow_arch.__name__]["error"] = error
+            logger.error(f'{tensorflow_arch.__name__}: {result["error"]}')
+        else:
+            print(f"{tensorflow_arch.__name__}: OK")
 
     if not result["error"]:
         del result["error"]
