@@ -27,7 +27,6 @@ if not is_tf_available():
 
 TARGET_VOCAB_SIZE = 1024
 
-import copy
 import importlib
 import os
 from datasets import load_dataset
@@ -40,10 +39,8 @@ from transformers import (
     FEATURE_EXTRACTOR_MAPPING,
     PROCESSOR_MAPPING,
     TOKENIZER_MAPPING,
-    AutoFeatureExtractor,
     AutoTokenizer,
     logging,
-    PreTrainedTokenizer,
     PreTrainedTokenizerFast,
 )
 from transformers.models.auto.configuration_auto import AutoConfig, model_type_to_module_name
@@ -83,7 +80,7 @@ def get_processor_types_from_config_class(config_class):
 
     processor_types = ()
 
-    # Check first if a model has `ProcessorMixin`. If not, check `PreTrainedTokenizer` & `FeatureExtractionMixin`.
+    # Check first if a model has `ProcessorMixin`. Otherwise, check if it has tokenizers or a feature extractor.
     if config_class in PROCESSOR_MAPPING:
         processor_types = PROCESSOR_MAPPING[config_class]
     elif config_class in TOKENIZER_MAPPING:
@@ -381,8 +378,8 @@ def convert_processors(processors, tiny_config, output_folder, result):
 
 
 def get_checkpoint_dir(output_dir, model_arch):
+    """Get framework-agnostic architecture name. Used to save all PT/TF/Flax models into the same directory."""
 
-    # Get framework-agnostic architecture name. Used to save all PT/TF/Flax models into the same directory/repo.
     arch_name = model_arch.__name__
     if arch_name.startswith("TF"):
         arch_name = arch_name[2:]
@@ -497,8 +494,7 @@ def build(config_class, models_to_create, output_dir):
                 model.save_pretrained(ckpt)
             except Exception as e:
                 # TODO: Improve
-                # Conversion may fail. One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`
-                # yet. Let's not create a model with different weights to avoid confusion (for now).
+                # Conversion may fail. Let's not create a model with different weights to avoid confusion (for now).
                 model = None
                 error = f"Failed to convert the pytorch model to the tensorflow model for {pt_arch}: {e}"
         else:
@@ -517,6 +513,7 @@ def build(config_class, models_to_create, output_dir):
     # TODO: remove
     return result
 
+    # "One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`"
     # for flax_arch in to_create["flax"]:
     #
     #     # Make PT/Flax weights compatible
@@ -538,6 +535,33 @@ def build(config_class, models_to_create, output_dir):
     #     result["flax"][flax_arch] = model
 
     return result
+
+
+def build_failed_report(results, include_warning=True):
+
+    failed_results = {}
+    for config_name in results:
+
+        if "error" in results[config_name]:
+            if config_name not in failed_results:
+                failed_results[config_name] = {}
+            failed_results[config_name] = {"error": results[config_name]["error"]}
+
+        if include_warning and "warnings" in results[config_name]:
+            if config_name not in failed_results:
+                failed_results[config_name] = {}
+            failed_results[config_name] = {"warnings": results[config_name]["warnings"]}
+
+        for framework in results:
+            for arch_name in results[framework]:
+                if "error" in results[framework][arch_name]:
+                    if config_name not in failed_results:
+                        failed_results[config_name] = {}
+                    if framework not in failed_results[config_name]:
+                        failed_results[config_name][framework] = {}
+                    failed_results[config_name][framework][arch_name] = results[framework][arch_name]["error"]
+
+    return failed_results
 
 
 if __name__ == "__main__":
@@ -577,26 +601,25 @@ if __name__ == "__main__":
     if not args.all:
         config_classes = [CONFIG_MAPPING[model_type] for model_type in args.model_types]
 
-    # TODO: (remove) changed `get_X_from_configuration_list` to `get_X_from_config_class`
-    # Mappings from config classes to lists of processor (tokenizer, feature extractor, processor) classes
+    # A map from config classes to tuples of processors (tokenizer, feature extractor, processor) classes
     processor_type_map = {c: get_processor_types_from_config_class(c) for c in config_classes}
 
-    # Skip models that have no processor at all
-    config_classes_with_processor = [c for c in config_classes if len(processor_type_map[c]) > 0]
-
     # Ignore some model types
-    # TODO: Discuss with Lysandre about the reason
+    # TODO: Discuss with Lysandre about the reason behind this
     if args.black_list:
-        final_config_classes = [c for c in config_classes_with_processor if c.model_type not in args.black_list]
+        config_classes = [c for c in config_classes if c.model_type not in args.black_list]
+
+    # Skip models that have no processor at all
+    config_classes = [c for c in config_classes if len(processor_type_map[c]) > 0]
 
     to_create = {
         c: {
             "processor": processor_type_map[c],
             "pytorch": get_architectures_from_config_class(c, pytorch_arch_mappings),
             "tensorflow": get_architectures_from_config_class(c, tensorflow_arch_mappings),
-            #"flax": get_architectures_from_config_class(c, flax_arch_mappings),
+            "flax": get_architectures_from_config_class(c, flax_arch_mappings),
         }
-        for c in final_config_classes
+        for c in config_classes
     }
 
     results = {}
@@ -610,26 +633,17 @@ if __name__ == "__main__":
     with open("tiny_model_creation_report.json", "w") as fp:
         json.dump(results, fp, indent=4)
 
+    # Build the failure report
+    failed_results = build_failed_report(results)
+    with open("failed_report.json", "w") as fp:
+        json.dump(failed_results, fp, indent=4)
+
     # TODO: remove
     exit(0)
 
     report = {"no_feature_extractor": [], "no_tokenizer": [], "identical_tokenizer": [], "vocab_sizes": {}}
 
-    _results = {}
-    for k in results:
-        #_results[str(k)] = {}
-        for k1 in results[k]:
-            #_results[str(k)][str(k1)] = {}
-            for k2 in results[k][k1]:
-                if isinstance(results[k][k1][k2], Exception):
-                    if str(k) not in _results:
-                        _results[str(k)] = {}
-                    if str(k1) not in _results[str(k)]:
-                        _results[str(k)][str(k1)] = {}
-                    _results[str(k)][str(k1)][str(k2)] = str(results[k][k1][k2])
 
-    with open("build_failed", "w") as fp:
-        json.dump(_results, fp, ensure_ascii=True, indent=4)
 
     print("--- Report ---")
 
