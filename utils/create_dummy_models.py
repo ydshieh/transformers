@@ -3,7 +3,7 @@ import json
 import os
 import shutil
 import sys
-import logging
+from transformers.utils import logging
 
 
 sys.path.append(".")
