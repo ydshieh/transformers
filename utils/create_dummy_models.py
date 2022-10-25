@@ -262,12 +262,10 @@ def get_tiny_config(config_class):
         model_tester_class = getattr(module, f"{camel_case_model_name}ModelTester", None)
     except ModuleNotFoundError as e:
         error = f"Tiny config not created for {model_type} - cannot find the testing module from the model name."
-        logger.error(error)
         raise ValueError(f"{error}: {str(e)}")
 
     if model_tester_class is None:
         error = f"Tiny config not created for {model_type} - no model tester is found in the testing module."
-        logger.error(error)
         raise ValueError(error)
 
     # `parent` is an instance of `unittest.TestCase`, but we don't need it here.
@@ -283,7 +281,6 @@ def get_tiny_config(config_class):
         return model_tester.get_config()
     else:
         error = f"Tiny config not created for {model_type} - the model tester {model_tester_class.__name__} lacks necessary method to create config."
-        logger.error(error)
         raise ValueError(error)
 
 
