@@ -482,7 +482,7 @@ def build(config_class, models_to_create, output_dir):
         if error:
             result["pytorch"][pytorch_arch.__name__]["error"] = error
 
-    for tensorflow_arch in to_create["tensorflow"]:
+    for tensorflow_arch in models_to_create["tensorflow"]:
         # Make PT/TF weights compatible
         pt_arch_name = tensorflow_arch.__name__[2:]  # Remove `TF`
         pt_arch = getattr(transformers_module, pt_arch_name)
