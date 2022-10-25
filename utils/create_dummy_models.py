@@ -3,10 +3,14 @@ import json
 import os
 import shutil
 import sys
+import logging
+
 
 sys.path.append(".")
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
+
+logger = logging.get_logger(__name__)
 
 import argparse
 import collections.abc
@@ -74,7 +78,7 @@ flax_arch_mappings = [getattr(transformers_module, x) for x in _flax_arch_mappin
 
 
 def get_processor_types_from_config_class(config_class):
-    """Return a tuple of processors for `config_class`
+    """Return a tuple of processors for `config_class`.
 
     We use `tuple` here to include (potentially) both slow & fast tokenizers.
     """
@@ -107,10 +111,9 @@ def get_processor_types_from_config_class(config_class):
 
 
 def get_architectures_from_config_class(config_class, arch_mappings):
-    """
-    Get a tuple of all possible architectures attributed to a configuration class.
+    """Return a tuple of all possible architectures attributed to a configuration class `config_class`.
 
-    For example, BertConfig -> [BertModel, BertForMaskedLM, ..., BertForQuestionAnswering]
+    For example, BertConfig -> [BertModel, BertForMaskedLM, ..., BertForQuestionAnswering].
     """
     # A model architecture could appear in several mappings. For example, `BartForConditionalGeneration` is in
     #   - MODEL_FOR_PRETRAINING_MAPPING_NAMES
@@ -133,60 +136,13 @@ def get_architectures_from_config_class(config_class, arch_mappings):
     return architectures
 
 
-# TODO: improve
-def get_tiny_config(config_class):
-    """
-    Retrieve a tiny configuration from the configuration class. It uses each class' `ModelTester`.
-    Args:
-        configuration_class: Subclass of `PreTrainedConfig`.
-
-    Returns:
-        An instance of `configuration_class` with tiny hyper-parameters
-    """
-    model_type = config_class.model_type
-    camel_case_model_name = config_class.__name__.split("Config")[0]
-
-    # Deal with special cases like `data2vec-vision` and `donut-swin` etc.
-    config_source_file = inspect.getsourcefile(config_class)
-    # The modeling file name without prefix and postfix
-    modeling_name = config_source_file.split("/")[-1].replace("configuration_", "").replace(".py", "")
-
-    try:
-        print("Importing", model_type_to_module_name(model_type))
-        module_name = model_type_to_module_name(model_type)
-        assert modeling_name.startswith(module_name)
-        module = importlib.import_module(f".models.{module_name}.test_modeling_{modeling_name}", package="tests")
-        model_tester_class = getattr(module, f"{camel_case_model_name}ModelTester", None)
-    except ModuleNotFoundError as e:
-        print(f"Tiny config not created for {model_type}: cannot find the testing module from the model name.")
-        raise ValueError(f"Tiny config not created for {model_type} - cannot find the testing module from the model name: {str(e)}")
-
-    if model_tester_class is None:
-        print(f"Tiny config not created for {model_type}: no model tester is found in the testing module.")
-        raise ValueError(f"Tiny config not created for {model_type}: no model tester is found in the testing module.")
-
-    # `parent` is an instance of `unittest.TestCase`, but we don't need it.
-    model_tester = model_tester_class(parent=None)
-
-    if hasattr(model_tester, "get_pipeline_config"):
-        return model_tester.get_pipeline_config()
-    elif hasattr(model_tester, "prepare_config_and_inputs"):
-        # `PoolFormer` has no `get_config` defined. Furthermore, it's better to use `prepare_config_and_inputs` even if
-        # `get_config` is defined, since there might be some extra changes in `prepare_config_and_inputs`.
-        return model_tester.prepare_config_and_inputs()[0]
-    elif hasattr(model_tester, "get_config"):
-        return model_tester.get_config()
-    else:
-        print(f"Tiny config not created for {model_type}: the model tester {model_tester_class.__name__} lacks necessary method to create config.")
-        raise ValueError(f"Tiny config not created for {model_type}: the model tester {model_tester_class.__name__} lacks necessary method to create config.")
-
-
 def get_config_class_from_processor_class(processor_class):
-    """
-    Some configurations use tokenizers/feature_extractors from other models. For example, `GPT-J` uses `GPT2Tokenizer`.
-    If no checkpoint is found for a configuration, or a checkpoint is found without necessary file(s) to load the
-    processor, we get the config class that corresponds to `processor_class` and use it to find a checkpoint in order to
-    create the processor.
+    """Get the config class from a processor class.
+
+    Some config/model classes use tokenizers/feature_extractors from other models. For example, `GPT-J` uses
+    `GPT2Tokenizer`. If no checkpoint is found for a config class, or a checkpoint is found without necessary file(s) to
+    create the processor for `processor_class`, we get the config class that corresponds to `processor_class` and use it
+    to find a checkpoint in order to create the processor.
     """
 
     processor_prefix = processor_class.__name__
@@ -204,43 +160,12 @@ def get_config_class_from_processor_class(processor_class):
     return new_config_class
 
 
-def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
-
-    new_tokenizer = tokenizer_fast.train_new_from_iterator(training_ds["text"], TARGET_VOCAB_SIZE)
-
-    # A little validation
-    if not isinstance(new_tokenizer, LayoutLMv3TokenizerFast):
-        new_tokenizer(testing_ds["text"])
-
-    return new_tokenizer
-
-
-def convert_feature_extractor(feature_extractor, tiny_config):
-
-    to_convert = False
-    kwargs = {}
-    if hasattr(tiny_config, "image_size"):
-        kwargs["size"] = tiny_config.image_size
-        kwargs["crop_size"] = tiny_config.image_size
-        to_convert = True
-
-    # Speech2TextModel specific.
-    if hasattr(tiny_config, "input_feat_per_channel"):
-        kwargs["feature_size"] = tiny_config.input_feat_per_channel
-        kwargs["num_mel_bins"] = tiny_config.input_feat_per_channel
-        to_convert = True
-
-    if to_convert:
-        feature_extractor = feature_extractor.__class__(**kwargs)
-
-    return feature_extractor
-
-
+# TODO: review again
 def build_processor(config_class, processor_class):
     """Create a processor for `processor_class`.
 
     The processor is not saved here. Instead, it will be saved in `convert_processors` after further changes in
-    `convert_processors`. For each model architecture`, a copy will be created and saved along the model.
+    `convert_processors`. For each model architecture`, a copy will be created and saved along the built model.
     """
     # Currently, this solely uses the docstring in the source file of `config_class` to find a checkpoint.
     checkpoint = get_checkpoint_from_config_class(config_class)
@@ -276,7 +201,6 @@ def build_processor(config_class, processor_class):
             attrs = {}
             for attr_name in processor_class.attributes:
                 attrs[attr_name] = []
-
                 # This could be a tuple (for tokenizers). For example, `CLIPProcessor` has
                 #   - feature_extractor_class = "CLIPFeatureExtractor"
                 #   - tokenizer_class = ("CLIPTokenizer", "CLIPTokenizerFast")
@@ -310,6 +234,90 @@ def build_processor(config_class, processor_class):
     return processor
 
 
+def get_tiny_config(config_class):
+    """Retrieve a tiny configuration from `config_class` using each model's `ModelTester`.
+
+    Args:
+        config_class: Subclass of `PreTrainedConfig`.
+
+    Returns:
+        An instance of `config_class` with tiny hyperparameters
+    """
+    model_type = config_class.model_type
+
+    # For model type like `data2vec-vision` and `donut-swin`, we can't get the config/model file name directly via
+    # `model_type` as it would be sth. like `configuration_data2vec_vision.py`.
+    # A simple way is to use `inspect.getsourcefile(config_class)`.
+    config_source_file = inspect.getsourcefile(config_class)
+    # The modeling file name without prefix (`modeling_`) and postfix (`.py`)
+    modeling_name = config_source_file.split("/")[-1].replace("configuration_", "").replace(".py", "")
+
+    try:
+        logger.info("Importing", model_type_to_module_name(model_type))
+        module_name = model_type_to_module_name(model_type)
+        assert modeling_name.startswith(module_name)
+        module = importlib.import_module(f".models.{module_name}.test_modeling_{modeling_name}", package="tests")
+        camel_case_model_name = config_class.__name__.split("Config")[0]
+        model_tester_class = getattr(module, f"{camel_case_model_name}ModelTester", None)
+    except ModuleNotFoundError as e:
+        error = f"Tiny config not created for {model_type} - cannot find the testing module from the model name."
+        logger.error(error)
+        raise ValueError(f"{error}: {str(e)}")
+
+    if model_tester_class is None:
+        error = f"Tiny config not created for {model_type} - no model tester is found in the testing module."
+        logger.error(error)
+        raise ValueError(error)
+
+    # `parent` is an instance of `unittest.TestCase`, but we don't need it here.
+    model_tester = model_tester_class(parent=None)
+
+    if hasattr(model_tester, "get_pipeline_config"):
+        return model_tester.get_pipeline_config()
+    elif hasattr(model_tester, "prepare_config_and_inputs"):
+        # `PoolFormer` has no `get_config` defined. Furthermore, it's better to use `prepare_config_and_inputs` even if
+        # `get_config` is defined, since there might be some extra changes in `prepare_config_and_inputs`.
+        return model_tester.prepare_config_and_inputs()[0]
+    elif hasattr(model_tester, "get_config"):
+        return model_tester.get_config()
+    else:
+        error = f"Tiny config not created for {model_type} - the model tester {model_tester_class.__name__} lacks necessary method to create config."
+        logger.error(error)
+        raise ValueError(error)
+
+
+def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
+
+    new_tokenizer = tokenizer_fast.train_new_from_iterator(training_ds["text"], TARGET_VOCAB_SIZE)
+
+    # A little validation
+    if not isinstance(new_tokenizer, LayoutLMv3TokenizerFast):
+        new_tokenizer(testing_ds["text"])
+
+    return new_tokenizer
+
+
+def convert_feature_extractor(feature_extractor, tiny_config):
+
+    to_convert = False
+    kwargs = {}
+    if hasattr(tiny_config, "image_size"):
+        kwargs["size"] = tiny_config.image_size
+        kwargs["crop_size"] = tiny_config.image_size
+        to_convert = True
+
+    # Speech2TextModel specific.
+    if hasattr(tiny_config, "input_feat_per_channel"):
+        kwargs["feature_size"] = tiny_config.input_feat_per_channel
+        kwargs["num_mel_bins"] = tiny_config.input_feat_per_channel
+        to_convert = True
+
+    if to_convert:
+        feature_extractor = feature_extractor.__class__(**kwargs)
+
+    return feature_extractor
+
+
 def convert_processors(processors, tiny_config, output_folder, result):
     """Change a processor to work with smaller inputs.
 
@@ -317,6 +325,8 @@ def convert_processors(processors, tiny_config, output_folder, result):
 
     For feature extractor, we use smaller image size or change
     other attributes using the values from `tiny_config`. See `convert_feature_extractor`.
+
+    This method should not fail: we catch the errors and put them in `result["warnings"]` with descriptive messages.
     """
 
     tokenizers = []
@@ -439,10 +449,12 @@ def build(config_class, models_to_create, output_dir):
     """
 
     result = {k: {} for k in models_to_create}
+
+    # These will be removed at the end if they are empty
     result["error"] = None
     result["warnings"] = []
 
-    # build processors
+    # Build processors
     processor_classes = models_to_create["processor"]
     for processor_class in processor_classes:
         processor = build_processor(config_class, processor_class)
@@ -450,27 +462,29 @@ def build(config_class, models_to_create, output_dir):
             result["processor"][processor_class] = processor
 
     if len(result["processor"]) == 0:
-        result["error"] = "No processor could be built."
+        result["error"] = f"No processor could be built for {config_class.__name__}."
         return result
 
     try:
         tiny_config = get_tiny_config(config_class)
     except Exception as e:
         result["error"] = str(e)
+        # Let's still return the processors, so we know they could be built.
         result["processor"] = {type(p).__name__: p.__class__.__name__ for p in result["processor"]}
         return result
 
-    # Reduce the vocab size in tokenizer(s)
+    # Convert the processors (reduce vocabulary size, smaller image size, etc.)
     processors = list(result["processor"].values())
     processor_output_folder = os.path.join(output_dir, "processors")
     processors = convert_processors(processors, tiny_config, processor_output_folder, result)
-    # update `result`
+    # update `result["processor"]`
     result["processor"] = {type(p).__name__: p.__class__.__name__ for p in processors}
 
     if len(result["processor"]) == 0:
-        result["error"] = "No processor could be converted."
+        result["error"] = f"No processor could be converted for {config_class.__name__}."
         return result
 
+    # Update the config with the properties of the converted processors (smaller vocab size, image size, etc.)
     for processor in processors:
         if isinstance(processor, PreTrainedTokenizerBase):
             vocab_size = processor.vocab_size
@@ -508,7 +522,6 @@ def build(config_class, models_to_create, output_dir):
                 model = tensorflow_arch.from_pretrained(ckpt, from_pt=True)
                 model.save_pretrained(ckpt)
             except Exception as e:
-                # TODO: Improve
                 # Conversion may fail. Let's not create a model with different weights to avoid confusion (for now).
                 model = None
                 error = f"Failed to convert the pytorch model to the tensorflow model for {pt_arch}: {e}"
@@ -605,9 +618,12 @@ if __name__ == "__main__":
         help="Comma-separated list of model type(s) from which the tiny models will be created.",
     )
     parser.add_argument("--black_list", type=list_str, help="Comma-separated list of model type(s) to ignore.", default='convbert,blenderbot-small,rag,dpr,retribert,layoutlmv2')
-    # TODO: (remove) removed `ONNX` from the original `help`.
-    # TODO: (remove) remove #
+
+    # --------------------------------------------------------------------------------
+    # TODO: Uncomment
     # parser.add_argument("output_path", type=Path, help="Path indicating where to store generated model.")
+    # --------------------------------------------------------------------------------
+
     args = parser.parse_args()
 
     # --------------------------------------------------------------------------------
@@ -647,10 +663,10 @@ if __name__ == "__main__":
     results = {}
     # TODO: remove `[:5]`
     for c, models_to_create in list(to_create.items())[:5]:
-        print(c)
+        logger.info(f"Create models for {c.__name__} ...")
         result = build(c, models_to_create, output_dir=os.path.join(args.output_path, c.model_type))
         results[c.__name__] = result
-        print("====================")
+        logger.info("=" * 40)
 
     with open("tiny_model_creation_report.json", "w") as fp:
         json.dump(results, fp, indent=4)
@@ -659,18 +675,3 @@ if __name__ == "__main__":
     failed_results = build_failed_report(results)
     with open("failed_report.json", "w") as fp:
         json.dump(failed_results, fp, indent=4)
-
-    # TODO: remove
-    exit(0)
-
-    report = {"no_feature_extractor": [], "no_tokenizer": [], "identical_tokenizer": [], "vocab_sizes": {}}
-
-
-
-    print("--- Report ---")
-
-    config_classes_without_processor = [c for c in config_classes if len(processor_type_map[c]) == 0]
-    if len(config_classes_without_processor) > 0:
-        print(
-            f"Some models could not be exported due to a lack of processor: {[c.model_type for c in config_classes_without_processor]}"
-        )
