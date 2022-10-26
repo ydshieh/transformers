@@ -157,9 +157,12 @@ def get_config_class_from_processor_class(processor_class):
     return new_config_class
 
 
-# TODO: review again
 def build_processor(config_class, processor_class):
     """Create a processor for `processor_class`.
+
+    If a processor is not able to be built with the original arguments, this method tries to change the arguments and
+    call itself recursively, by inferring a new `config_class` or a new `processor_class` from another one, in order to
+    find a checkpoint containing the necessary files to build a processor.
 
     The processor is not saved here. Instead, it will be saved in `convert_processors` after further changes in
     `convert_processors`. For each model architecture`, a copy will be created and saved along the built model.
@@ -174,14 +177,16 @@ def build_processor(config_class, processor_class):
 
     processor = None
     try:
-        # TODO: Maybe use Auto API
         processor = processor_class.from_pretrained(checkpoint)
     except Exception as e:
         pass
 
-    # Try to get a new processor class from checkpoint. This is helpful to deal with a checkpoint without necessary file
-    # to load processor while `processor_class` is an Auto class.
-    # For example, see `https://huggingface.co/asapp/sew-tiny-100k`.
+    # Try to get a new processor class from checkpoint. This is helpful for a checkpoint without necessary file to load
+    # processor while `processor_class` is an Auto class. For example, `sew` has `Wav2Vec2Processor` in
+    # `PROCESSOR_MAPPING_NAMES`, its `tokenizer_class` is `AutoTokenizer`, and the checkpoint
+    # `https://huggingface.co/asapp/sew-tiny-100k` has no tokenizer file, but we can get
+    # `tokenizer_class: Wav2Vec2CTCTokenizer` from the config file. (The new processor class won't be able to load from
+    # `checkpoint`, but it helps this recursive method to find a way to build a processor).
     if processor is None and checkpoint is not None and issubclass(processor_class, (PreTrainedTokenizerBase, AutoTokenizer)):
         try:
             config = AutoConfig.from_pretrained(checkpoint)
@@ -196,7 +201,6 @@ def build_processor(config_class, processor_class):
                     processor = build_processor(config_class, new_processor_class)
 
     if processor is None:
-
         # Try to build each component (tokenizer & feature extractor) of a `ProcessorMixin`.
         if issubclass(processor_class, ProcessorMixin):
             attrs = {}
@@ -215,15 +219,16 @@ def build_processor(config_class, processor_class):
                     if attr is not None:
                         attrs[attr_name].append(attr)
 
-            # try to build a `ProcessorMixin`, so we can return a value
+            # try to build a `ProcessorMixin`, so we can return a single value
             if all(len(v) > 0 for v in attrs.values()):
                 try:
                     processor = processor_class(**{k: v[0] for k, v in attrs.items()})
                 except Exception as e:
                     pass
         else:
-            # `checkpoint` might lack some file(s) to load the processor. For example, `facebook/hubert-base-ls960`
-            # has no tokenizer file to load `Wav2Vec2CTCTokenizer`.
+            # `checkpoint` might lack some file(s) to load a processor. For example, `facebook/hubert-base-ls960`
+            # has no tokenizer file to load `Wav2Vec2CTCTokenizer`. In this case, we try to build a processor
+            # with the configuration class (for example, `Wav2Vec2Config`) corresponding to `processor_class`.
             config_class_from_processor_class = get_config_class_from_processor_class(processor_class)
             if config_class_from_processor_class != config_class:
                 processor = build_processor(config_class_from_processor_class, processor_class)
