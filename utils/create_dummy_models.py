@@ -168,7 +168,8 @@ def build_processor(config_class, processor_class):
     checkpoint = get_checkpoint_from_config_class(config_class)
 
     if checkpoint is None:
-        # try to get the checkpoint from the config class for `processor_class`
+        # try to get the checkpoint from the config class for `processor_class`.
+        # This helps cases like `XCLIPConfig` and `VideoMAEFeatureExtractor` to find a checkpoint from `VideoMAEConfig`.
         config_class_from_processor_class = get_config_class_from_processor_class(processor_class)
         checkpoint = get_checkpoint_from_config_class(config_class_from_processor_class)
 
