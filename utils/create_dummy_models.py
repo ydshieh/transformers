@@ -611,9 +611,8 @@ def build_failed_report(results, include_warning=True):
                         failed_results[config_name][framework] = {}
                     if arch_name not in failed_results[config_name][framework]:
                         failed_results[config_name][framework][arch_name] = {}
-                    failed_results[config_name][framework][arch_name]["error"] = results[config_name][framework][
-                        arch_name
-                    ]["error"]
+                    error = results[config_name][framework][arch_name]["error"]
+                    failed_results[config_name][framework][arch_name]["error"] = error
 
     return failed_results
 
