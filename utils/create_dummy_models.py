@@ -39,17 +39,17 @@ if not is_torch_available():
 if not is_tf_available():
     raise ValueError("Please install TensorFlow.")
 
-FRAMEWORKS = ["pytorch", "tensorflow", "flax"]
+FRAMEWORKS = ["pytorch", "tensorflow"]
 INVALID_ARCH = []
 TARGET_VOCAB_SIZE = 1024
 
 _pytorch_arch_mappings = [x for x in dir(transformers_module) if x.startswith("MODEL_") and x.endswith("_MAPPING") and x != "MODEL_NAMES_MAPPING"]
 _tensorflow_arch_mappings = [x for x in dir(transformers_module) if x.startswith("TF_MODEL_") and x.endswith("_MAPPING")]
-_flax_arch_mappings = [x for x in dir(transformers_module) if x.startswith("FLAX_MODEL_") and x.endswith("_MAPPING")]
+# _flax_arch_mappings = [x for x in dir(transformers_module) if x.startswith("FLAX_MODEL_") and x.endswith("_MAPPING")]
 
 pytorch_arch_mappings = [getattr(transformers_module, x) for x in _pytorch_arch_mappings]
 tensorflow_arch_mappings = [getattr(transformers_module, x) for x in _tensorflow_arch_mappings]
-flax_arch_mappings = [getattr(transformers_module, x) for x in _flax_arch_mappings]
+# flax_arch_mappings = [getattr(transformers_module, x) for x in _flax_arch_mappings]
 
 unexportable_model_architectures = []
 
@@ -427,10 +427,11 @@ def fill_result_with_error(result, error, models_to_create):
 
     result["error"] = error
     for framework in FRAMEWORKS:
-        for model_arch in models_to_create[framework]:
-            result[framework][model_arch.__name__]["model"] = None
-            result[framework][model_arch.__name__]["checkpoint"] = None
-            result[framework][model_arch.__name__]["error"] = error
+        if framework in models_to_create:
+            for model_arch in models_to_create[framework]:
+                result[framework][model_arch.__name__]["model"] = None
+                result[framework][model_arch.__name__]["checkpoint"] = None
+                result[framework][model_arch.__name__]["error"] = error
 
 
 def build(config_class, models_to_create, output_dir):
@@ -573,7 +574,9 @@ def build_failed_report(results, include_warning=True):
                 failed_results[config_name] = {}
             failed_results[config_name]["warnings"] = results[config_name]["warnings"]
 
-        for framework in results[config_name]:
+        for framework in FRAMEWORKS:
+            if framework not in results[config_name]:
+                continue
             for arch_name in results[config_name][framework]:
                 if "error" in results[config_name][framework][arch_name]:
                     if config_name not in failed_results:
@@ -591,7 +594,9 @@ def build_simple_report(results):
 
     text = ""
     for config_name in results:
-        for framework in results[config_name]:
+        for framework in FRAMEWORKS:
+            if framework not in results[config_name]:
+                continue
             for arch_name in results[config_name][framework]:
                 if "error" in results[config_name][framework][arch_name]:
                     result = results[config_name][framework][arch_name]["error"]
@@ -658,7 +663,7 @@ if __name__ == "__main__":
             "processor": processor_type_map[c],
             "pytorch": get_architectures_from_config_class(c, pytorch_arch_mappings),
             "tensorflow": get_architectures_from_config_class(c, tensorflow_arch_mappings),
-            "flax": get_architectures_from_config_class(c, flax_arch_mappings),
+            # "flax": get_architectures_from_config_class(c, flax_arch_mappings),
         }
         for c in config_classes
     }
