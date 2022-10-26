@@ -422,6 +422,17 @@ def build_model(model_arch, tiny_config, output_dir):
     return model
 
 
+def fill_result_with_error(result, error, models_to_create):
+    """Fill `result` with errors for all target model arch if we can't build processor"""
+
+    result["error"] = error
+    for framework in FRAMEWORKS:
+        for model_arch in models_to_create[framework]:
+            result[framework][model_arch.__name__]["model"] = None
+            result[framework][model_arch.__name__]["checkpoint"] = None
+            result[framework][model_arch.__name__]["error"] = error
+
+
 def build(config_class, models_to_create, output_dir):
     """Create all models for a certain model type.
 
@@ -450,16 +461,18 @@ def build(config_class, models_to_create, output_dir):
             result["processor"][processor_class] = processor
 
     if len(result["processor"]) == 0:
-        result["error"] = f"No processor could be built for {config_class.__name__}."
+        error = f"No processor could be built for {config_class.__name__}."
+        fill_result_with_error(result, error, models_to_create)
         logger.error(result["error"])
         return result
 
     try:
         tiny_config = get_tiny_config(config_class)
     except Exception as e:
-        result["error"] = str(e)
         # Let's still return the processors, so we know they could be built.
         result["processor"] = {type(p).__name__: p.__class__.__name__ for p in result["processor"]}
+        error = str(e)
+        fill_result_with_error(result, error, models_to_create)
         logger.error(result["error"])
         return result
 
@@ -471,7 +484,8 @@ def build(config_class, models_to_create, output_dir):
     result["processor"] = {type(p).__name__: p.__class__.__name__ for p in processors}
 
     if len(result["processor"]) == 0:
-        result["error"] = f"No processor could be converted for {config_class.__name__}."
+        error = f"No processor could be converted for {config_class.__name__}."
+        fill_result_with_error(result, error, models_to_create)
         logger.error(result["error"])
         return result
 
@@ -542,31 +556,6 @@ def build(config_class, models_to_create, output_dir):
     if not result["warnings"]:
         del result["warnings"]
 
-    # TODO: continue
-    # TODO: remove
-    return result
-
-    # "One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`"
-    # for flax_arch in to_create["flax"]:
-    #
-    #     # Make PT/Flax weights compatible
-    #     pt_arch_name = flax_arch.__name__[4:]  # Remove `Flax`
-    #     pt_arch = getattr(transformers_module, pt_arch_name)
-    #     if isinstance(result["pytorch"].get(pt_arch, None), torch.nn.Module):
-    #         ckpt = os.path.join(output_folder, pt_arch_name)
-    #         # Use the same weights from PyTorch.
-    #         try:
-    #             model = flax_arch.from_pretrained(ckpt, from_pt=True)
-    #             model.save_pretrained(ckpt)
-    #         except:
-    #             # Conversion may fail. One example is, `FlaxWav2Vec2` doesn't support `config.do_stable_layer_norm=True`
-    #             # yet.
-    #             model = None
-    #     else:
-    #         model = build_model(config_class, flax_arch, output_folder=output_folder, processors=processors)
-    #
-    #     result["flax"][flax_arch] = model
-
     return result
 
 
@@ -574,7 +563,6 @@ def build_failed_report(results, include_warning=True):
 
     failed_results = {}
     for config_name in results:
-
         if "error" in results[config_name]:
             if config_name not in failed_results:
                 failed_results[config_name] = {}
@@ -586,8 +574,6 @@ def build_failed_report(results, include_warning=True):
             failed_results[config_name]["warnings"] = results[config_name]["warnings"]
 
         for framework in results[config_name]:
-            if framework not in FRAMEWORKS:
-                continue
             for arch_name in results[config_name][framework]:
                 if "error" in results[config_name][framework][arch_name]:
                     if config_name not in failed_results:
@@ -599,6 +585,21 @@ def build_failed_report(results, include_warning=True):
                     failed_results[config_name][framework][arch_name]["error"] = results[config_name][framework][arch_name]["error"]
 
     return failed_results
+
+
+def build_simple_report(results):
+
+    text = ""
+    for config_name in results:
+        for framework in results[config_name]:
+            for arch_name in results[config_name][framework]:
+                if "error" in results[config_name][framework][arch_name]:
+                    result = results[config_name][framework][arch_name]["error"]
+                else:
+                    result = "OK"
+                text += f"{arch_name.__name__}: {result}\n"
+
+    return text
 
 
 if __name__ == "__main__":
@@ -676,3 +677,8 @@ if __name__ == "__main__":
     failed_results = build_failed_report(results)
     with open("failed_report.json", "w") as fp:
         json.dump(failed_results, fp, indent=4)
+
+    # Build the failure report
+    simple_report = build_simple_report(results)
+    with open("simple_report.txt", "w") as fp:
+        fp.write(simple_report)
