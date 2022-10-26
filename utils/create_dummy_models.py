@@ -427,13 +427,10 @@ def fill_result_with_error(result, error, models_to_create):
 
     result["error"] = error
     for framework in FRAMEWORKS:
-        result[framework] = {}
         if framework in models_to_create:
-            result[framework][model_arch.__name__] = {}
+            result[framework] = {}
             for model_arch in models_to_create[framework]:
-                result[framework][model_arch.__name__]["model"] = None
-                result[framework][model_arch.__name__]["checkpoint"] = None
-                result[framework][model_arch.__name__]["error"] = error
+                result[framework][model_arch.__name__] = {"model": None, "checkpoint": None, "error": error}
 
 
 def build(config_class, models_to_create, output_dir):
