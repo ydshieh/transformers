@@ -285,11 +285,10 @@ def get_tiny_config(config_class):
 
 
 def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
-    # TODO
 
     new_tokenizer = tokenizer_fast.train_new_from_iterator(training_ds["text"], TARGET_VOCAB_SIZE)
 
-    # A little validation
+    # Make sure it at least runs
     if not isinstance(new_tokenizer, LayoutLMv3TokenizerFast):
         new_tokenizer(testing_ds["text"])
 
@@ -297,7 +296,6 @@ def convert_tokenizer(tokenizer_fast: PreTrainedTokenizerFast):
 
 
 def convert_feature_extractor(feature_extractor, tiny_config):
-    # TODO
 
     to_convert = False
     kwargs = {}
