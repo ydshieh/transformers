@@ -43,8 +43,14 @@ FRAMEWORKS = ["pytorch", "tensorflow"]
 INVALID_ARCH = []
 TARGET_VOCAB_SIZE = 1024
 
-_pytorch_arch_mappings = [x for x in dir(transformers_module) if x.startswith("MODEL_") and x.endswith("_MAPPING") and x != "MODEL_NAMES_MAPPING"]
-_tensorflow_arch_mappings = [x for x in dir(transformers_module) if x.startswith("TF_MODEL_") and x.endswith("_MAPPING")]
+_pytorch_arch_mappings = [
+    x
+    for x in dir(transformers_module)
+    if x.startswith("MODEL_") and x.endswith("_MAPPING") and x != "MODEL_NAMES_MAPPING"
+]
+_tensorflow_arch_mappings = [
+    x for x in dir(transformers_module) if x.startswith("TF_MODEL_") and x.endswith("_MAPPING")
+]
 # _flax_arch_mappings = [x for x in dir(transformers_module) if x.startswith("FLAX_MODEL_") and x.endswith("_MAPPING")]
 
 pytorch_arch_mappings = [getattr(transformers_module, x) for x in _pytorch_arch_mappings]
@@ -172,7 +178,11 @@ def build_processor(config_class, processor_class):
     # `https://huggingface.co/asapp/sew-tiny-100k` has no tokenizer file, but we can get
     # `tokenizer_class: Wav2Vec2CTCTokenizer` from the config file. (The new processor class won't be able to load from
     # `checkpoint`, but it helps this recursive method to find a way to build a processor).
-    if processor is None and checkpoint is not None and issubclass(processor_class, (PreTrainedTokenizerBase, AutoTokenizer)):
+    if (
+        processor is None
+        and checkpoint is not None
+        and issubclass(processor_class, (PreTrainedTokenizerBase, AutoTokenizer))
+    ):
         try:
             config = AutoConfig.from_pretrained(checkpoint)
         except Exception as e:
@@ -270,7 +280,10 @@ def get_tiny_config(config_class):
     elif hasattr(model_tester, "get_config"):
         return model_tester.get_config()
     else:
-        error = f"Tiny config not created for {model_type} - the model tester {model_tester_class.__name__} lacks necessary method to create config."
+        error = (
+            f"Tiny config not created for {model_type} - the model tester {model_tester_class.__name__} lacks"
+            " necessary method to create config."
+        )
         raise ValueError(error)
 
 
@@ -345,7 +358,9 @@ def convert_processors(processors, tiny_config, output_folder, result):
                     if fast_tokenizer.vocab_size > TARGET_VOCAB_SIZE:
                         fast_tokenizer = convert_tokenizer(tokenizer)
                 except Exception as e:
-                    result["warnings"].append(f"Failed to convert the fast tokenizer for {fast_tokenizer.__class__.__name__}: {e}")
+                    result["warnings"].append(
+                        f"Failed to convert the fast tokenizer for {fast_tokenizer.__class__.__name__}: {e}"
+                    )
                     continue
         elif slow_tokenizer is None:
             slow_tokenizer = tokenizer
@@ -355,7 +370,9 @@ def convert_processors(processors, tiny_config, output_folder, result):
         try:
             fast_tokenizer.save_pretrained(output_folder)
         except Exception as e:
-            result["warnings"].append(f"Failed to save the fast tokenizer for {fast_tokenizer.__class__.__name__}: {e}")
+            result["warnings"].append(
+                f"Failed to save the fast tokenizer for {fast_tokenizer.__class__.__name__}: {e}"
+            )
             fast_tokenizer = None
 
     # Make sure the slow tokenizer (if any) corresponds to the fast version (as it might be converted above)
@@ -363,7 +380,9 @@ def convert_processors(processors, tiny_config, output_folder, result):
         try:
             slow_tokenizer = AutoTokenizer.from_pretrained(output_folder, use_fast=False)
         except Exception as e:
-            result["warnings"].append(f"Failed to load the slow tokenizer saved from {fast_tokenizer.__class__.__name__}: {e}")
+            result["warnings"].append(
+                f"Failed to load the slow tokenizer saved from {fast_tokenizer.__class__.__name__}: {e}"
+            )
             # Let's just keep the fast version
             slow_tokenizer = None
 
@@ -372,7 +391,9 @@ def convert_processors(processors, tiny_config, output_folder, result):
         try:
             slow_tokenizer.save_pretrained(output_folder)
         except Exception as e:
-            result["warnings"].append(f"Failed to save the slow tokenizer for {slow_tokenizer.__class__.__name__}: {e}")
+            result["warnings"].append(
+                f"Failed to save the slow tokenizer for {slow_tokenizer.__class__.__name__}: {e}"
+            )
             slow_tokenizer = None
 
     # update feature extractors using the tiny config
@@ -512,10 +533,12 @@ def build(config_class, models_to_create, output_dir):
             error = f"Failed to create the pytorch model for {pytorch_arch}: {e}"
 
         result["pytorch"][pytorch_arch.__name__]["model"] = model.__class__.__name__ if model is not None else None
-        result["pytorch"][pytorch_arch.__name__]["checkpoint"] = get_checkpoint_dir(output_dir, pytorch_arch) if model is not None else None
+        result["pytorch"][pytorch_arch.__name__]["checkpoint"] = (
+            get_checkpoint_dir(output_dir, pytorch_arch) if model is not None else None
+        )
         if error:
             result["pytorch"][pytorch_arch.__name__]["error"] = error
-            logger.error(f'{pytorch_arch.__name__}: {error}')
+            logger.error(f"{pytorch_arch.__name__}: {error}")
         else:
             print(f"{pytorch_arch.__name__}: OK")
 
@@ -543,11 +566,15 @@ def build(config_class, models_to_create, output_dir):
                 model = None
                 error = f"Failed to create the tensorflow model for {tensorflow_arch}: {e}"
 
-        result["tensorflow"][tensorflow_arch.__name__]["model"] = model.__class__.__name__ if model is not None else None
-        result["tensorflow"][tensorflow_arch.__name__]["checkpoint"] = get_checkpoint_dir(output_dir, tensorflow_arch) if model is not None else None
+        result["tensorflow"][tensorflow_arch.__name__]["model"] = (
+            model.__class__.__name__ if model is not None else None
+        )
+        result["tensorflow"][tensorflow_arch.__name__]["checkpoint"] = (
+            get_checkpoint_dir(output_dir, tensorflow_arch) if model is not None else None
+        )
         if error:
             result["tensorflow"][tensorflow_arch.__name__]["error"] = error
-            logger.error(f'{tensorflow_arch.__name__}: {error}')
+            logger.error(f"{tensorflow_arch.__name__}: {error}")
         else:
             print(f"{tensorflow_arch.__name__}: OK")
 
@@ -584,7 +611,9 @@ def build_failed_report(results, include_warning=True):
                         failed_results[config_name][framework] = {}
                     if arch_name not in failed_results[config_name][framework]:
                         failed_results[config_name][framework][arch_name] = {}
-                    failed_results[config_name][framework][arch_name]["error"] = results[config_name][framework][arch_name]["error"]
+                    failed_results[config_name][framework][arch_name]["error"] = results[config_name][framework][
+                        arch_name
+                    ]["error"]
 
     return failed_results
 
@@ -624,7 +653,12 @@ if __name__ == "__main__":
         type=list_str,
         help="Comma-separated list of model type(s) from which the tiny models will be created.",
     )
-    parser.add_argument("--black_list", type=list_str, help="Comma-separated list of model type(s) to ignore.", default='convbert,blenderbot-small,rag,dpr,retribert,layoutlmv2')
+    parser.add_argument(
+        "--black_list",
+        type=list_str,
+        help="Comma-separated list of model type(s) to ignore.",
+        default="convbert,blenderbot-small,rag,dpr,retribert,layoutlmv2",
+    )
 
     # --------------------------------------------------------------------------------
     # TODO: Uncomment
