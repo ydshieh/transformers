@@ -601,7 +601,7 @@ def build_simple_report(results):
                     result = results[config_name][framework][arch_name]["error"]
                 else:
                     result = "OK"
-                text += f"{arch_name.__name__}: {result}\n"
+                text += f"{arch_name}: {result}\n"
 
     return text
 
