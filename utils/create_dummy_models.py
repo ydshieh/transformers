@@ -1,23 +1,37 @@
+import argparse
+import collections.abc
+import importlib
 import inspect
 import json
 import os
 import shutil
 import sys
 
-sys.path.append(".")
-
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
-
-import argparse
-import collections.abc
-
-from transformers.file_utils import is_tf_available, is_torch_available
-from transformers.feature_extraction_utils import FeatureExtractionMixin
-
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase
-from transformers.processing_utils import ProcessorMixin, transformers_module
 from check_config_docstrings import get_checkpoint_from_config_class
+from datasets import load_dataset
 
+from transformers import (
+    AutoTokenizer,
+    CONFIG_MAPPING,
+    FEATURE_EXTRACTOR_MAPPING,
+    LayoutLMv3TokenizerFast,
+    PROCESSOR_MAPPING,
+    PreTrainedTokenizerFast,
+    TOKENIZER_MAPPING,
+    logging,
+)
+
+from transformers.feature_extraction_utils import FeatureExtractionMixin
+from transformers.file_utils import is_tf_available, is_torch_available
+from transformers.models.auto.configuration_auto import AutoConfig, model_type_to_module_name
+from transformers.processing_utils import ProcessorMixin, transformers_module
+from transformers.tokenization_utils_base import PreTrainedTokenizerBase
+
+logging.set_verbosity_error()
+logger = logging.get_logger(__name__)
+
+sys.path.append(".")
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "3"
 
 if not is_torch_available():
     raise ValueError("Please install PyTorch.")
@@ -26,41 +40,8 @@ if not is_tf_available():
     raise ValueError("Please install TensorFlow.")
 
 FRAMEWORKS = ["pytorch", "tensorflow", "flax"]
-TARGET_VOCAB_SIZE = 1024
-
-import importlib
-import os
-from datasets import load_dataset
-
-
-from transformers import LayoutLMv3TokenizerFast
-
-from transformers import (
-    CONFIG_MAPPING,
-    FEATURE_EXTRACTOR_MAPPING,
-    PROCESSOR_MAPPING,
-    TOKENIZER_MAPPING,
-    AutoTokenizer,
-    logging,
-    PreTrainedTokenizerFast,
-)
-from transformers.models.auto.configuration_auto import AutoConfig, model_type_to_module_name
-
-
 INVALID_ARCH = []
-logging.set_verbosity_error()
-logger = logging.get_logger(__name__)
-
-tokenizer_checkpoint_overrides = {"byt5": "google/byt5-small"}
-ds = load_dataset("wikitext", "wikitext-2-raw-v1")
-training_ds = ds["train"]
-testing_ds = ds["test"]
-
-per_model_type_configuration_attributes = {
-    "big_bird": {"num_labels": 1},
-}
-
-unexportable_model_architectures = []
+TARGET_VOCAB_SIZE = 1024
 
 _pytorch_arch_mappings = [x for x in dir(transformers_module) if x.startswith("MODEL_") and x.endswith("_MAPPING") and x != "MODEL_NAMES_MAPPING"]
 _tensorflow_arch_mappings = [x for x in dir(transformers_module) if x.startswith("TF_MODEL_") and x.endswith("_MAPPING")]
@@ -69,6 +50,12 @@ _flax_arch_mappings = [x for x in dir(transformers_module) if x.startswith("FLAX
 pytorch_arch_mappings = [getattr(transformers_module, x) for x in _pytorch_arch_mappings]
 tensorflow_arch_mappings = [getattr(transformers_module, x) for x in _tensorflow_arch_mappings]
 flax_arch_mappings = [getattr(transformers_module, x) for x in _flax_arch_mappings]
+
+unexportable_model_architectures = []
+
+ds = load_dataset("wikitext", "wikitext-2-raw-v1")
+training_ds = ds["train"]
+testing_ds = ds["test"]
 
 
 def get_processor_types_from_config_class(config_class):
