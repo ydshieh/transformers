@@ -62,9 +62,6 @@ per_model_type_configuration_attributes = {
 
 unexportable_model_architectures = []
 
-tokenizers_without_fast_version = ["MarianTokenizer"]
-non_convertable_fast_tokenizers = ["RoFormerTokenizerFast", "SplinterTokenizerFast"]
-
 _pytorch_arch_mappings = [x for x in dir(transformers_module) if x.startswith("MODEL_") and x.endswith("_MAPPING") and x != "MODEL_NAMES_MAPPING"]
 _tensorflow_arch_mappings = [x for x in dir(transformers_module) if x.startswith("TF_MODEL_") and x.endswith("_MAPPING")]
 _flax_arch_mappings = [x for x in dir(transformers_module) if x.startswith("FLAX_MODEL_") and x.endswith("_MAPPING")]
