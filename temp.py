@@ -16,7 +16,12 @@ model = AutoModelForCausalLM.from_pretrained(ckpt)
 breakpoint()
 
 ckpt = "google/gemma-2b"
-#tokenizer = AutoTokenizer.from_pretrained(ckpt)
+
+# `tokenizers` is not ok neither
+# <frozen importlib._bootstrap>:488: RuntimeWarning: The global interpreter lock (GIL) has been enabled to load module 'sentencepiece._sentencepiece', which has not declared that it can run safely without the GIL. To override this behavior and keep the GIL disabled (at your own risk), run with PYTHON_GIL=0 or -Xgil=0.
+# Segmentation fault (core dumped)
+
+tokenizer = AutoTokenizer.from_pretrained(ckpt)
 
 # sentencepiece is not ok with py13 and GIL is reenabled
 from transformers import GemmaTokenizer
