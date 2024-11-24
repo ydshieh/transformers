@@ -55,14 +55,6 @@ _import_structure = {
     "eetq": ["replace_with_eetq_linear"],
     "fbgemm_fp8": ["FbgemmFp8Linear", "replace_with_fbgemm_fp8_linear"],
     "fsdp": ["is_fsdp_managed_module"],
-    "ggml": [
-        "GGUF_CONFIG_MAPPING",
-        "GGUF_TENSOR_MAPPING",
-        "GGUF_TOKENIZER_MAPPING",
-        "_gguf_parse_value",
-        "load_dequant_gguf_tensor",
-        "load_gguf",
-    ],
     "hqq": ["prepare_for_hqq_linear"],
     "integration_utils": [
         "INTEGRATION_TO_CALLBACK",
@@ -157,14 +149,6 @@ if TYPE_CHECKING:
     from .eetq import replace_with_eetq_linear
     from .fbgemm_fp8 import FbgemmFp8Linear, replace_with_fbgemm_fp8_linear
     from .fsdp import is_fsdp_managed_module
-    from .ggml import (
-        GGUF_CONFIG_MAPPING,
-        GGUF_TENSOR_MAPPING,
-        GGUF_TOKENIZER_MAPPING,
-        _gguf_parse_value,
-        load_dequant_gguf_tensor,
-        load_gguf,
-    )
     from .hqq import prepare_for_hqq_linear
     from .integration_utils import (
         INTEGRATION_TO_CALLBACK,

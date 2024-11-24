@@ -18,7 +18,6 @@ from typing import Callable, List, Optional, Set, Tuple, Union
 
 import torch
 from packaging import version
-from safetensors.torch import storage_ptr, storage_size
 from torch import nn
 
 from .utils import is_torch_greater_or_equal, is_torch_xla_available, logging

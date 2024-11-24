@@ -446,6 +446,8 @@ class _BaseAutoModelClass:
 
     @classmethod
     def from_pretrained(cls, pretrained_model_name_or_path, *model_args, **kwargs):
+        breakpoint()
+
         config = kwargs.pop("config", None)
         trust_remote_code = kwargs.pop("trust_remote_code", None)
         kwargs["_from_auto"] = True
@@ -560,10 +562,19 @@ class _BaseAutoModelClass:
                 pretrained_model_name_or_path, *model_args, config=config, **hub_kwargs, **kwargs
             )
         elif type(config) in cls._model_mapping.keys():
-            model_class = _get_model_class(config, cls._model_mapping)
-            return model_class.from_pretrained(
+            #model_class = _get_model_class(config, cls._model_mapping)
+            breakpoint()
+            #from transformers import GemmaForCausalLM
+            from transformers.models.gemma.modeling_gemma import GemmaForCausalLM
+            breakpoint()
+            model_class = GemmaForCausalLM
+
+            breakpoint()
+            o = model_class.from_pretrained(
                 pretrained_model_name_or_path, *model_args, config=config, **hub_kwargs, **kwargs
             )
+            breakpoint()
+            return o
         raise ValueError(
             f"Unrecognized configuration class {config.__class__} for this kind of AutoModel: {cls.__name__}.\n"
             f"Model type should be one of {', '.join(c.__name__ for c in cls._model_mapping.keys())}."

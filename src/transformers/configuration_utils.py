@@ -26,7 +26,6 @@ from packaging import version
 
 from . import __version__
 from .dynamic_module_utils import custom_object_save
-from .modeling_gguf_pytorch_utils import load_gguf_checkpoint
 from .utils import (
     CONFIG_NAME,
     PushToHubMixin,

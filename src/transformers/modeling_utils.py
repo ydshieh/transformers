@@ -13,6 +13,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+breakpoint()
 import collections
 import copy
 import functools
@@ -59,7 +61,6 @@ from .pytorch_utils import (  # noqa: F401
 )
 from .quantizers import AutoHfQuantizer, HfQuantizer
 from .quantizers.quantizers_utils import get_module_from_name
-from .safetensors_conversion import auto_conversion
 from .utils import (
     ACCELERATE_MIN_VERSION,
     ADAPTER_SAFE_WEIGHTS_NAME,
@@ -3395,6 +3396,7 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         Currently, it can't handle deepspeed ZeRO stage 3 and ignores loading errors
 
         """
+        breakpoint()
         state_dict = kwargs.pop("state_dict", None)
         from_tf = kwargs.pop("from_tf", False)
         from_flax = kwargs.pop("from_flax", False)
