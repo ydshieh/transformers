@@ -147,8 +147,12 @@ def foo():
                 outputs = model_forward_3(my_model, return_dict=True, **model_inputs)
                 o['model_forward'] = model_forward_3
         else:
-            outputs = o['model_forward'](my_model, return_dict=True, **model_inputs)
-            o['outputs'] = outputs
+            if put_output:
+                outputs = o['model_forward'](my_model, return_dict=True, **model_inputs)
+                o['outputs'] = outputs
+            else:
+                import time
+                time.sleep(0.025)
             # only put if necessary!
             if put_output:
                 p.put(o)

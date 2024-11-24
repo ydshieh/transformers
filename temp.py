@@ -64,3 +64,17 @@ out = model.generate(inputs, do_sample=False, max_new_tokens=500, cache_implemen
 #out = tokenizer.batch_decode(out, skip_special_tokens=True)[0]
 dt = time.time() - t0
 print(f'dt: {dt}') 
+
+
+t0 = time.time()
+out = model.generate(inputs, do_sample=False, max_new_tokens=500, cache_implementation="static")
+#out = tokenizer.batch_decode(out, skip_special_tokens=True)[0]
+dt = time.time() - t0
+print(f'dt: {dt}') 
+
+
+t0 = time.time()
+out = model.generate(inputs, do_sample=False, max_new_tokens=500, cache_implementation="static")
+#out = tokenizer.batch_decode(out, skip_special_tokens=True)[0]
+dt = time.time() - t0
+print(f'dt: {dt}') 
