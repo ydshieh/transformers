@@ -152,7 +152,11 @@ def foo():
                 o['outputs'] = outputs
             else:
                 import time
-                time.sleep(0.025)
+                # time.sleep(0.025)
+                for i in range(400000):
+                    i = i * (i + 1) // 97134567
+                #outputs = o['model_forward'](my_model, return_dict=True, **model_inputs)
+                #o['outputs'] = outputs
             # only put if necessary!
             if put_output:
                 p.put(o)
