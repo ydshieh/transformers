@@ -137,6 +137,7 @@ def foo():
         item = q.get()
         o, model, model_inputs, put_output = item
 
+        o['model_forward'] = model_forward_2
         if o['model_forward'] is None:
             #if isinstance(model_kwargs.get("past_key_values"), StaticCache):
             if model.device.type == "cuda":
