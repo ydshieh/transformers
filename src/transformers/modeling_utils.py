@@ -52,7 +52,7 @@ from .pytorch_utils import (  # noqa: F401
     Conv1D,
     apply_chunking_to_forward,
     find_pruneable_heads_and_indices,
-    id_tensor_storage,
+    #id_tensor_storage,
     is_torch_greater_or_equal_than_1_13,
     prune_conv1d_layer,
     prune_layer,
@@ -4440,11 +4440,13 @@ class PreTrainedModel(nn.Module, ModuleUtilsMixin, GenerationMixin, PushToHubMix
         if device_map is None and not is_fsdp_enabled() and not is_deepspeed_zero3_enabled():
             ptrs = collections.defaultdict(list)
             for name, tensor in model.state_dict().items():
-                id_tensor = id_tensor_storage(tensor)
-                ptrs[id_tensor].append(name)
+                #id_tensor = id_tensor_storage(tensor)
+                #ptrs[id_tensor].append(name)
+                pass
 
             # These are all the pointers of shared tensors.
-            tied_params = [names for _, names in ptrs.items() if len(names) > 1]
+            # tied_params = [names for _, names in ptrs.items() if len(names) > 1]
+            tied_params = []
         else:
             # id function doesn't work for meta tensor so we need this function
             tied_params = find_tied_parameters(model)

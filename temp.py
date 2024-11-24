@@ -16,7 +16,12 @@ model = AutoModelForCausalLM.from_pretrained(ckpt)
 breakpoint()
 
 ckpt = "google/gemma-2b"
-tokenizer = AutoTokenizer.from_pretrained(ckpt)
+#tokenizer = AutoTokenizer.from_pretrained(ckpt)
+
+# sentencepiece is not ok with py13 and GIL is reenabled
+from transformers import GemmaTokenizer
+# tokenizer = GemmaTokenizer.from_pretrained(ckpt)
+
 
 model = model.to(device)
 transformers.generation.utils.my_model = model
