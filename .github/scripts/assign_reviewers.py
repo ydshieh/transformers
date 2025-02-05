@@ -27,6 +27,8 @@ def get_file_owners(file_path, codeowners_lines):
 def main():
     g = Github(os.environ['GITHUB_TOKEN'])
     repo = g.get_repo("ydshieh/transformers")
+    os.system("git branch")
+    os.system("git log -n 1")
     with open(os.environ['GITHUB_EVENT_PATH']) as f:
         event = json.load(f)
     script_dir = Path(__file__).parent.absolute()
@@ -36,6 +38,8 @@ def main():
     # The PR number is available in the event payload
     pr_number = event['pull_request']['number']
     pr = repo.get_pull(pr_number)
+    os.system("git branch")
+    os.system("git log -n 1")
     pr_author = pr.user.login
 
     existing_reviews = list(pr.get_reviews())
@@ -44,6 +48,8 @@ def main():
         return
 
     users_requested, teams_requested = pr.get_review_requests()
+    os.system("git branch")
+    os.system("git log -n 1")
     users_requested = list(users_requested)
     if users_requested:
         print(f"Reviewers already requested: {users_requested}")
@@ -51,6 +57,8 @@ def main():
 
     locs_per_owner = Counter()
     for file in pr.get_files():
+        os.system("git branch")
+        os.system("git log -n 1")
         owners = get_file_owners(file.filename, codeowners_lines)
         for owner in owners:
             locs_per_owner[owner] += file.changes
