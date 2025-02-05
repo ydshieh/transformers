@@ -26,7 +26,7 @@ def get_file_owners(file_path, codeowners_lines):
 
 def main():
     g = Github(os.environ['GITHUB_TOKEN'])
-    repo = g.get_repo("huggingface/transformers")
+    repo = g.get_repo("ydshieh/transformers")
     with open(os.environ['GITHUB_EVENT_PATH']) as f:
         event = json.load(f)
     script_dir = Path(__file__).parent.absolute()
