@@ -1,5 +1,5 @@
-    - label: echo 9
+    - label: Bon 9
       command: "echo 9"
 
-    - label: echo 10
+    - label: Mal 10
       command: "echo 10"
