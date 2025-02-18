@@ -1,2 +1,5 @@
-    - command: "echo 9"
-    - command: "echo 10"
+    - labels: echo 9
+      command: "echo 9"
+
+    - labels: echo 10
+      command: "echo 10"
