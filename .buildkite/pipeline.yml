@@ -6,4 +6,5 @@ steps:
       - "echo 1"
       - "activate py39"
       - 'python "dummy.py"'
+      - "echo 4"
     key: build
