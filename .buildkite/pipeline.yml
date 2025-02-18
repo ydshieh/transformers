@@ -1,4 +1,7 @@
 steps:
   - label: ":hammer: Build"
-    command: "echo 3"
+    commands:
+      - "echo 3"
+      - "echo 2"
+      - "echo 1"
     key: build
