@@ -4,6 +4,5 @@ steps:
       - "echo 3"
       - "echo 2"
       - "echo 1"
-      - "activate py39"
       - "echo 4"
     key: build
