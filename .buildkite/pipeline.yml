@@ -14,7 +14,7 @@ steps:
 #      - "conda deactivate"
 #      - "echo 6"
 #      - "echo 7"
-    key: build 1
+    key: build-1
   - label: "Build 2"
 #    plugins:
 #      - docker#v5.12.0:
@@ -30,4 +30,4 @@ steps:
 #      - "conda deactivate"
 #      - "echo 6"
 #      - "echo 7"
-    key: build 2
+    key: build-2
