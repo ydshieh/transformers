@@ -7,4 +7,7 @@ steps:
       - "conda init"
       - "conda activate py39"
       - "echo 4"
+      - "conda deactivate"
+      - "echo 6"
+      - "echo 7"
     key: build
