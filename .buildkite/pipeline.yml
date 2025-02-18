@@ -9,6 +9,7 @@ steps:
   #          always-pull: true
       commands:
         - "echo 3"
+        - "exit -1"
         - "echo 2"
         - "echo 1"
         - "sleep 30"
