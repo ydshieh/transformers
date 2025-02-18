@@ -8,7 +8,7 @@ steps:
   #          image: "python:3.10-slim"
   #          always-pull: true
       commands:
-        - 'echo "    - command: \"echo 5\""'
+        - 'echo "    - command: "echo 5"'
 #        - 'echo "    - command: \"echo 5\"" | buildkite-agent pipeline upload'
       key: generate
 #    - label: "Build 1"
