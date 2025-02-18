@@ -2,6 +2,14 @@ steps:
 - group: ":lock_with_ink_pen: Security Audits"
   key: "group"
   steps:
+    - label: "Generate"
+  #    plugins:
+  #      - docker#v5.12.0:
+  #          image: "python:3.10-slim"
+  #          always-pull: true
+      commands:
+        - 'echo "    - command: \"echo 5\"" | buildkite-agent pipeline upload'
+      key: generate
     - label: "Build 1"
   #    plugins:
   #      - docker#v5.12.0:
