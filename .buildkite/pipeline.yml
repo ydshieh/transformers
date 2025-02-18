@@ -9,10 +9,12 @@ steps:
   #          always-pull: true
       commands:
         - "echo 3"
-        - "exit -1"
         - "echo 2"
-        - "echo 1"
+        - "mkdir logs"
+        - "echo 1 > logs/log.txt"
         - "sleep 30"
+      artifact_paths:
+        - "logs/log.txt"
   #      - "conda init"
   #      - "conda activate py39"
   #      - "echo 4"
