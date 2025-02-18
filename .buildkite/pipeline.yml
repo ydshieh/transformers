@@ -21,6 +21,9 @@ steps:
         - "echo 2"
         - "mkdir logs"
         - "echo 1 > logs/log.txt"
+        - "ls -l"
+        - "ls -l logs"
+        - "ls -l logs/log.txt"
         - "sleep 30"
       artifact_paths:
         - "logs/log.txt"
