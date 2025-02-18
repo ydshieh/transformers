@@ -2,15 +2,15 @@ steps:
 - group: ":lock_with_ink_pen: Security Audits"
   key: "group"
   steps:
-#    - label: "Generate"
-#  #    plugins:
-#  #      - docker#v5.12.0:
-#  #          image: "python:3.10-slim"
-#  #          always-pull: true
-#      commands:
-#        - 'tail config.yml | buildkite-agent pipeline upload'
-##        - 'echo "    - command: \"echo 5\"" | buildkite-agent pipeline upload'
-#      key: generate
+    - label: "Generate"
+  #    plugins:
+  #      - docker#v5.12.0:
+  #          image: "python:3.10-slim"
+  #          always-pull: true
+      commands:
+        - 'tail config.yml | buildkite-agent pipeline upload'
+#        - 'echo "    - command: \"echo 5\"" | buildkite-agent pipeline upload'
+      key: generate
     - label: "Build 1"
   #    plugins:
   #      - docker#v5.12.0:
@@ -24,7 +24,7 @@ steps:
         - "ls -l"
         - "ls -l logs"
         - "ls -l logs/log.txt"
-        - "sleep 30"
+#        - "sleep 30"
       artifact_paths:
         - "logs/log.txt"
   #      - "conda init"
