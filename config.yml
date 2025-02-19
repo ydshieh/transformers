@@ -1,5 +1,9 @@
   steps:
     - label: Bon 9
+      plugins:
+        - docker#v5.12.0:
+            image: "huggingface/transformers-torch-light"
+            always-pull: true
       commands:
         - "echo 9"
         - "echo $(python3 --version)"
