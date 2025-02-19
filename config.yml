@@ -7,4 +7,5 @@
     - label: Mal 10
       commands:
         - "echo 10"
+        - "echo $(python3 --version)"
       parallelism: 3
