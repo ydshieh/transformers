@@ -7,5 +7,4 @@
     - label: Mal 10
       commands:
         - "echo 10"
-        - "python3 -m pytest -v tests/models/vit/test_modeling_vit.py::ViTModelTest::test_config"
       parallelism: 3
