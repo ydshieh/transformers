@@ -23,3 +23,18 @@
 ##        - "python3 -m pytest -v tests/models/vit/test_modeling_vit.py::ViTModelTest::test_config"
         - "python3 -m pytest -v tests/models/vit/test_modeling_vit.py -k ViTModelTest"
       parallelism: 2
+
+    - label: OK 11
+      plugins:
+        - docker#v5.12.0:
+            image: "huggingface/transformers-torch-light"
+            always-pull: true
+      commands:
+        - "pwd"
+        - "echo 4"
+        - "ls -la /workdir"
+        - "pip install -e ."
+##        - "python3 -m pytest -v tests/models/vit/test_modeling_vit.py::ViTModelTest::test_config"
+        - "python3 -m pytest -v tests/models/vit/test_modeling_vit.py -k ViTModelTest"
+        - "exit -1"
+      parallelism: 2
