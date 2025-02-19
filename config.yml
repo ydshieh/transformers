@@ -8,6 +8,8 @@
         - "echo 9"
         - "pwd"
         - "echo $(python3 --version)"
+        - "echo $$BUILDKITE_RETRY_COUNT"
+        - "echo $$BUILDKITE_BRANCH"
       parallelism: 2
 
     - label: Mal 10
