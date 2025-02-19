@@ -6,6 +6,7 @@
 #            always-pull: true
       commands:
         - "echo 9"
+        - "pwd"
         - "echo $(python3 --version)"
       parallelism: 2
 
