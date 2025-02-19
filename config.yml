@@ -10,7 +10,7 @@
         - "echo $(python3 --version)"
         - "echo $$BUILDKITE_RETRY_COUNT"
         - "echo $$BUILDKITE_BRANCH"
-        - "exit 1"
+        - 'if [ "$$BUILDKITE_RETRY_COUNT" = "1" ]; then exit 0; else exit 1; fi'
       parallelism: 2
 
     - label: Mal 10
