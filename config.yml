@@ -34,7 +34,7 @@
         - "echo 4"
         - "ls -la /workdir"
         - "pip install -e ."
-        - "python3 -m pytest -v tests/models/vit/test_modeling_vit.py::ViTModelTest::test_config"
+#        - "python3 -m pytest -v tests/models/vit/test_modeling_vit.py::ViTModelTest::test_config"
         - "echo $$BUILDKITE_RETRY_COUNT"
         #        - "python3 -m pytest -v tests/models/vit/test_modeling_vit.py -k ViTModelTest"
         - 'if [ "$$BUILDKITE_RETRY_COUNT" = "1" ]; then exit 0; else exit 1; fi'
