@@ -18,6 +18,8 @@
         - "echo 10"
         - "pwd"
         - "ls -l"
+        - "ls -l /"
+        - "ls -l /workdir"
 #        - "python3 -m pytest -v tests/models/vit/test_modeling_vit.py::ViTModelTest::test_config"
         - "python3 -m pytest -v tests/models/vit/test_modeling_vit.py -k ViTModelTest"
       parallelism: 2
