@@ -67,7 +67,7 @@ steps:
         - "mkdir test_preparation"
         - 'buildkite-agent artifact download "test_preparation/*" test_preparation/ --step fetch_tests'
         - 'echo "show tests_torch_test_list.txt"'
-        - "ls -la test_preparation_local"
+        - "ls -la test_preparation"
         - "tail -10000 test_preparation/tests_torch_test_list.txt"
 #        # For the record only
 #        - 'if [ "1" = "1" ]; then echo "1"; fi'
