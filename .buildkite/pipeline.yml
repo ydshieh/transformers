@@ -54,6 +54,8 @@ steps:
           fi
         - |
           if [ "1" = "0" ]; then
+            echo 1
+          else
             echo 0
           fi
       key: fetch_tests
