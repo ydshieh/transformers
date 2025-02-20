@@ -9,7 +9,7 @@ steps:
             always-pull: true
       commands:
         - "echo $(python3 --version)"
-        - "echo $(git branch)"
+        - "echo $(git branch --show-current)"
         - "echo $(git log -n 1)"
       key: fetch_tests
 
