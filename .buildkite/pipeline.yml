@@ -10,7 +10,9 @@ steps:
             always-pull: true
       commands:
         - "git fetch origin"
+        - "git branch -D main"
         - "git checkout main"
+        - "git pull origin main"
         - "git branch --show-current"
         - "echo $(git log -n 1)"
         - "git pull origin main"
