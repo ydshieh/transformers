@@ -2,6 +2,7 @@ steps:
 - group: ":lock_with_ink_pen: Security Audits"
   key: "group"
   steps:
+    - trigger: "ydshieh-transformers-2"
     - label: "Generate"
   #    plugins:
   #      - docker#v5.12.0:
