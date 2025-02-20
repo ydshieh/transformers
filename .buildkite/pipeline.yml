@@ -66,9 +66,9 @@ steps:
         - "echo $(python3 --version)"
         - "mkdir test_preparation_local"
         - 'buildkite-agent artifact download "test_preparation/*" test_preparation_local/ --step fetch_tests'
-#        - 'echo "show tests_torch_test_list.txt"'
-#        - "ls -la test_preparation_local"
-#        - "tail -10000 test_preparation/tests_torch_test_list.txt"
+        - 'echo "show tests_torch_test_list.txt"'
+        - "ls -la test_preparation_local"
+        - "tail -10000 test_preparation/tests_torch_test_list.txt"
 #        # For the record only
 #        - 'if [ "1" = "1" ]; then echo "1"; fi'
 #        - 'if [ "1" = "0" ]; then echo "1"; else echo "0"; fi'
