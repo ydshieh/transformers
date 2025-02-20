@@ -62,6 +62,8 @@ steps:
             image: "huggingface/transformers-torch-light"
             always-pull: true
             mount-buildkite-agent: true
+            environment:
+              - "OMP_NUM_THREADS=1"
       commands:
         - "ls -la"
         - "echo $(python3 --version)"
