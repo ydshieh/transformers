@@ -39,6 +39,8 @@ steps:
         - "python utils/tests_fetcher.py | tee tests_fetched_summary.txt"
 ##        - "python utils/tests_fetcher.py --filter_tests"
         - "ls -la test_preparation"
+        - "ls -la test_preparation/tests_torch_test_list.txt"
+        - "tail -10000 test_preparation/tests_torch_test_list.txt"
       key: fetch_tests
 
 #    - label: "Build 1"
