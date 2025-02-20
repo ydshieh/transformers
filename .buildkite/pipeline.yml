@@ -40,11 +40,11 @@ steps:
 ##        - "python utils/tests_fetcher.py --filter_tests"
         - "ls -la test_preparation"
         - "ls -la test_preparation/tests_torch_test_list.txt"
-        - 'echo "show tests_torch_test_list.txt'
+        - 'echo "show tests_torch_test_list.txt"'
         - "tail -10000 test_preparation/tests_torch_test_list.txt"
-        - 'echo "show tests_generate_test_list.txt'
+        - 'echo "show tests_generate_test_list.txt"'
         - "tail -10000 test_preparation/tests_generate_test_list.txt"
-        - 'echo "show pipelines_torch_test_list.txt'
+        - 'echo "show pipelines_torch_test_list.txt"'
         - "tail -10000 test_preparation/pipelines_torch_test_list.txt"
       key: fetch_tests
 
