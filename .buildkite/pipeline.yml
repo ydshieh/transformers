@@ -46,6 +46,17 @@ steps:
         - "tail -10000 test_preparation/tests_generate_test_list.txt"
         - 'echo "show pipelines_torch_test_list.txt"'
         - "tail -10000 test_preparation/pipelines_torch_test_list.txt"
+      key: fetch_tests
+    - label: "run_tests"
+      plugins:
+        - docker#v5.12.0:
+            image: "huggingface/transformers-quality"
+            always-pull: true
+      commands:
+        - "echo $(python3 --version)"
+        - 'echo "show tests_torch_test_list.txt"'
+        - "ls -la test_preparation"
+        - "tail -10000 test_preparation/tests_torch_test_list.txt"
 #        # For the record only
 #        - 'if [ "1" = "1" ]; then echo "1"; fi'
 #        - 'if [ "1" = "0" ]; then echo "1"; else echo "0"; fi'
@@ -59,7 +70,7 @@ steps:
 #          else
 #            echo 0
 #          fi
-      key: fetch_tests
+      key: run_tests
 
 #    - label: "Build 1"
 #  #    plugins:
