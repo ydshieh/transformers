@@ -9,7 +9,7 @@ steps:
             always-pull: true
       commands:
         - "echo $(python3 --version)"
-        - "echo $(git branch | sed -n '/\* /s///p')"
+#        - "echo $(git branch | sed -n '/\* /s///p')"
         - "echo $(git log -n 1)"
         - "uv pip install -U -e ."
         - "mkdir -p test_preparation"
