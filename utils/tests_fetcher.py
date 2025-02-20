@@ -412,11 +412,12 @@ def get_diff(repo: Repo, base_commit: str, commits: List[str]) -> List[str]:
                 if diff_obj.a_path != diff_obj.b_path:
                     code_diff.extend([diff_obj.a_path, diff_obj.b_path])
                 else:
+                    # TODO: why this is blocked with `buildkite`
                     # Otherwise, we check modifications are in code and not docstrings.
-                    if diff_is_docstring_only(repo, commit, diff_obj.b_path):
-                        print(f"Ignoring diff in {diff_obj.b_path} as it only concerns docstrings or comments.")
-                    else:
-                        code_diff.append(diff_obj.a_path)
+                    # if diff_is_docstring_only(repo, commit, diff_obj.b_path):
+                    #     print(f"Ignoring diff in {diff_obj.b_path} as it only concerns docstrings or comments.")
+                    # else:
+                    code_diff.append(diff_obj.a_path)
 
     return code_diff
 
