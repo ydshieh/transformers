@@ -52,6 +52,7 @@ if is_flash_attn_2_available():
     from ...modeling_flash_attention_utils import _flash_attention_forward
 
 
+b = 2
 logger = logging.get_logger(__name__)
 
 _HIDDEN_STATES_START_POSITION = 1

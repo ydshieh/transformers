@@ -43,6 +43,7 @@ from ...utils import (
 from .configuration_vit import ViTConfig
 
 
+a = 1
 logger = logging.get_logger(__name__)
 
 # General docstring
