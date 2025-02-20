@@ -46,6 +46,14 @@ steps:
         - "tail -10000 test_preparation/tests_generate_test_list.txt"
         - 'echo "show pipelines_torch_test_list.txt"'
         - "tail -10000 test_preparation/pipelines_torch_test_list.txt"
+        - |
+          if [ "1" = "1" ]; then
+            echo 1
+          fi
+        - |
+          if [ "1" = "0" ]; then
+            echo 0
+          fi
       key: fetch_tests
 
 #    - label: "Build 1"
