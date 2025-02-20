@@ -2,6 +2,21 @@ steps:
 - group: "setup_and_quality"
   key: "setup_and_quality"
   steps:
+    # Should NOT include, but we need to make sure `main` is updated
+    - label: "update main"
+      plugins:
+        - docker#v5.12.0:
+            image: "huggingface/transformers-quality"
+            always-pull: true
+      commands:
+        - "git fetch origin"
+        - "git checkout main"
+        - "git branch --show-current"
+        - "echo $(git log -n 1)"
+        - "git pull origin main"
+        - "git branch --show-current"
+        - "echo $(git log -n 1)"
+      key: update_main
     - label: "fetch_tests"
       plugins:
         - docker#v5.12.0:
