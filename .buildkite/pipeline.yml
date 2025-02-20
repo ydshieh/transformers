@@ -16,9 +16,11 @@ steps:
 #        - "python -m pip install -U -e ."
         - "python -m pip install -e ."
         - "mkdir -p test_preparation"
-        - "python utils/tests_fetcher.py | tee tests_fetched_summary.txt"
-#        - "python utils/tests_fetcher.py --filter_tests"
-        - "ls -la test_preparation"
+        - 'echo "utils/tests_fetcher.py" without tee'
+#        - "python utils/tests_fetcher.py"
+#        - "python utils/tests_fetcher.py | tee tests_fetched_summary.txt"
+##        - "python utils/tests_fetcher.py --filter_tests"
+#        - "ls -la test_preparation"
       #        - "echo $(git log -n 1)"
       key: fetch_tests
 
