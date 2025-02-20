@@ -17,7 +17,7 @@ steps:
         - "python -m pip install -e ."
         - "mkdir -p test_preparation"
         - 'echo "utils/tests_fetcher.py" without tee'
-#        - "python utils/tests_fetcher.py"
+        - "python utils/tests_fetcher.py"
 #        - "python utils/tests_fetcher.py | tee tests_fetched_summary.txt"
 ##        - "python utils/tests_fetcher.py --filter_tests"
 #        - "ls -la test_preparation"
