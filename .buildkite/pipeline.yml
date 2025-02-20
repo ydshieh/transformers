@@ -49,6 +49,9 @@ steps:
       artifact_paths:
         - "test_preparation/*"
       key: fetch_tests
+    - label: "run_tests_dummy"
+      commands:
+        - 'buildkite-agent artifact download "test_preparation/*" test_preparation_local/ --step fetch_tests'
     - label: "run_tests"
       plugins:
         - docker#v5.12.0:
