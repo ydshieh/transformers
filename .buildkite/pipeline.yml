@@ -11,6 +11,11 @@ steps:
         - "echo $(python3 --version)"
         - "echo $(git branch --show-current)"
         - "echo $(git log -n 1)"
+        - "uv pip install -U -e ."
+        - "mkdir -p test_preparation"
+        - "python utils/tests_fetcher.py | tee tests_fetched_summary.txt"
+        - "python utils/tests_fetcher.py --filter_tests"
+#        - "echo $(git log -n 1)"
       key: fetch_tests
 
 #    - label: "Build 1"
