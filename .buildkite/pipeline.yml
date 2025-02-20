@@ -64,6 +64,7 @@ steps:
       commands:
         - "ls -la"
         - "echo $(python3 --version)"
+        - "mkdir test_preparation_local"
         - 'buildkite-agent artifact download "test_preparation/*" test_preparation_local/ --step fetch_tests'
 #        - 'echo "show tests_torch_test_list.txt"'
 #        - "ls -la test_preparation_local"
