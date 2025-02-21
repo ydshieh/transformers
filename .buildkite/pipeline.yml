@@ -31,10 +31,12 @@ steps:
         - "python utils/tests_fetcher.py | tee tests_fetched_summary.txt"
         - "python utils/tests_fetcher.py --filter_tests"
         - 'echo "shuffle tests_torch_test_list.txt"'
-        - "shuf test_preparation/tests_torch_test_list.txt > test_preparation/shuffled_tests_torch_test_list.txt"
-        - "python .buildkite/split_tests.py --input_file test_preparation/shuffled_tests_torch_test_list.txt --output_file test_preparation/splitted_shuffled_tests_torch_test_list.json --n_splits 2"
-        - "python .buildkite/create_run_tests_pipeline.py --output_file .buildkite/generated_config.yml"
-        - "buildkite-agent pipeline upload .buildkite/generated_config.yml"
+#        - "shuf test_preparation/tests_torch_test_list.txt > test_preparation/shuffled_tests_torch_test_list.txt"
+        - "ls -la test_preparation"
+        - "python .buildkite/split_tests.py --input_dir test_preparation"
+        - "ls -la test_preparation"
+#        - "python .buildkite/create_run_tests_pipeline.py --output_file .buildkite/generated_config.yml"
+#        - "buildkite-agent pipeline upload .buildkite/generated_config.yml"
       # Need to generate a new file for new jobs/steps then upload
       artifact_paths:
         - "test_preparation/*"
