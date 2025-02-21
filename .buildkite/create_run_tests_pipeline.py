@@ -26,7 +26,7 @@ if __name__ == '__main__':
     config["steps"] = []
     job = dict()
     job["label"] = "dummy"
-    job["plugin"] = [
+    job["plugins"] = [
         {
             "docker#v5.12.0": {
                 "image": "huggingface/transformers-torch-light",
