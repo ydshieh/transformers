@@ -42,11 +42,15 @@ steps:
         - "ls -la test_preparation/tests_torch_test_list.txt"
         - 'echo "show tests_torch_test_list.txt"'
         - "tail -10000 test_preparation/tests_torch_test_list.txt"
-        - "shuf test_preparation/tests_torch_test_list.txt > test_preparation/shuffled_test_preparation.txt"
         - 'echo "show tests_generate_test_list.txt"'
         - "tail -10000 test_preparation/tests_generate_test_list.txt"
         - 'echo "show pipelines_torch_test_list.txt"'
         - "tail -10000 test_preparation/pipelines_torch_test_list.txt"
+        - 'echo "shuffle tests_torch_test_list.txt"'
+        - "shuf test_preparation/tests_torch_test_list.txt > test_preparation/shuffled_tests_torch_test_list.txt"
+        - 'echo "split shuffled_tests_torch_test_list.txt"'
+        - "python .buildkite/split_tests.py --input_file test_preparation/shuffled_tests_torch_test_list.txt --output_file test_preparation/splitted_shuffled_tests_torch_test_list.json --n_splits 2"
+
       artifact_paths:
         - "test_preparation/*"
       key: fetch_tests
@@ -74,14 +78,15 @@ steps:
         - 'echo "show original tests_torch_test_list.txt"'
         - "tail -10000 test_preparation/tests_torch_test_list.txt"
         - 'echo "show shuffled tests_torch_test_list.txt"'
-        - 'echo "show shuffled tests_torch_test_list.txt"'
-        - "tail -10000 test_preparation/shuffled_test_preparation.txt"
+        - "tail -10000 test_preparation/shuffled_tests_torch_test_list.txt"
+        - 'echo "show splitted shuffled_tests_torch_test_list.txt"'
+        - "tail -10000 test_preparation/splitted_shuffled_tests_torch_test_list.json"
         - 'echo "pip install packages"'
         - "python -m pip install -U -e ."
         - 'echo "run tests"'
-        - "python -m pytest -v $(cat test_preparation/shuffled_test_preparation.txt)"
+        - "python -m pytest -v $(cat test_preparation/shuffled_tests_torch_test_list.txt)"
         - 'echo "run tests with -n 8"'
-        - "python -m pytest -n 8 -v $(cat test_preparation/shuffled_test_preparation.txt)"
+        - "python -m pytest -n 8 -v $(cat test_preparation/shuffled_tests_torch_test_list.txt)"
 #        # For the record only
 #        - 'if [ "1" = "1" ]; then echo "1"; fi'
 #        - 'if [ "1" = "0" ]; then echo "1"; else echo "0"; fi'
