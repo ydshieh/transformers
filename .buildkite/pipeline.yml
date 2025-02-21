@@ -52,6 +52,8 @@ steps:
         - 'echo "split shuffled_tests_torch_test_list.txt"'
         - "python .buildkite/split_tests.py --input_file test_preparation/shuffled_tests_torch_test_list.txt --output_file test_preparation/splitted_shuffled_tests_torch_test_list.json --n_splits 2"
         - "python .buildkite/create_run_tests_pipeline.py --output_file .buildkite/run_tests.yml"
+        - "ls -la .buildkite/generated_config.yml"
+        - "cat .buildkite/generated_config.yml"
         - "buildkite-agent pipeline upload .buildkite/run_tests.yml"
       # Need to generate a new file for new jobs/steps then upload
       artifact_paths:

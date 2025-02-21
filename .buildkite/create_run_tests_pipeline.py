@@ -1,4 +1,6 @@
 import argparse
+import yaml
+import os
 
 
 if __name__ == '__main__':
@@ -19,6 +21,18 @@ if __name__ == '__main__':
         data = fp.read()
     with open(args.output_file, "w") as fp:
         fp.write(data)
+
+    config = dict()
+    config["steps"] = []
+    job = dict()
+    job["label"] = "dummy"
+    job["commands"] = ["pwd", "ls -la"]
+    config["steps"].append(job)
+
+    folder = ".buildkite"
+
+    with open(os.path.join(folder, "generated_config.yml"), "w") as f:
+        f.write(yaml.dump(config, sort_keys=False, default_flow_style=False))
 
     # with open(args.input_file) as fp:
     #     data = fp.read().splitlines()
