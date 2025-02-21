@@ -109,7 +109,7 @@ steps:
         - "echo $BUILDKITE_PARALLEL_JOB"
         - "echo $$BUILDKITE_PARALLEL_JOB"
         - 'python -c ''import json; fp = open("test_preparation/splitted_shuffled_tests_torch_test_list.json"); data = json.load(fp); fp.close(); print(data["0"]);'''
-        - 'python -c ''import json; fp = open("test_preparation/splitted_shuffled_tests_torch_test_list.json"); data = json.load(fp); fp.close(); print(data[os.environ["BUILDKITE_PARALLEL_JOB"]]);'''
+        - 'python -c ''import os; import json; fp = open("test_preparation/splitted_shuffled_tests_torch_test_list.json"); data = json.load(fp); fp.close(); print(data[os.environ["BUILDKITE_PARALLEL_JOB"]]);'''
 #        - 'echo "run tests with -n 8"'
 #        - "python -m pytest -n 8 -v $(cat test_preparation/shuffled_tests_torch_test_list.txt)"
 #        # For the record only
