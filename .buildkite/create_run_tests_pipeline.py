@@ -10,6 +10,11 @@ from typing import Any, Dict, List, Optional
 class Job:
     name: str
     docker_image: List[Dict[str, str]] = None
+    install_steps: List[str] = None
+
+    def __post_init__(self):
+        if self.install_steps is None:
+            self.install_steps = ["uv venv && uv pip install ."]
 
     def to_dict(self):
 
@@ -39,11 +44,11 @@ class Job:
             "mkdir test_preparation",
             "buildkite-agent artifact download \"test_preparation/*\" test_preparation/ --step fetch_tests",
             "ls -la test_preparation",
-            "echo \"pip install packages\"",
-            "uv pip install -U -e .",
+            " && ".join(self.install_steps),
             "python -c \"import nltk; nltk.download('punkt', quiet=True)\"" if "example" in self.name else "echo Skipping",
             "du -h -d 1 \"$(pip -V | cut -d ' ' -f 4 | sed 's/pip//g')\" | grep -vE \"dist-info|_distutils_hack|__pycache__\" | sort -h | tee installed.txt || true",
             "pip list --format=freeze | tee installed.txt || true",
+            # TODO: why failed
             "dpkg-query --show --showformat='${Installed-Size}\t${Package}\n' | sort -rh | head -25 | sort -h | awk '{ package=$2; sub(\".*/\", "", package); printf(\"%.5f GB %s\n\", $1/1024/1024, package)}' || true",
             f"TEST_SPLITS=$(python -c 'import os; import json; fp = open(\"{test_file}\"); data = json.load(fp); fp.close(); test_splits = data[os.environ[\"BUILDKITE_PARALLEL_JOB\"]]; test_splits = \" \".join(test_splits); print(test_splits);')",
             "echo \"$$TEST_SPLITS\"",
