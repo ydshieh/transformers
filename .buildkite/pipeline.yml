@@ -97,6 +97,7 @@ steps:
             environment:
               - "OMP_NUM_THREADS=1"
               - "BUILDKITE_PARALLEL_JOB"
+              - "BUILDKITE_BRANCH"
       # Need to be created dynamically
       parallelism: 2
       commands:
