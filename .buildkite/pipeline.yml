@@ -50,7 +50,8 @@ steps:
         - "shuf test_preparation/tests_torch_test_list.txt > test_preparation/shuffled_tests_torch_test_list.txt"
         - 'echo "split shuffled_tests_torch_test_list.txt"'
         - "python .buildkite/split_tests.py --input_file test_preparation/shuffled_tests_torch_test_list.txt --output_file test_preparation/splitted_shuffled_tests_torch_test_list.json --n_splits 2"
-
+        - "buildkite-agent pipeline upload config2.yml"
+      # Need to generate a new file for new jobs/steps then upload
       artifact_paths:
         - "test_preparation/*"
       key: fetch_tests
@@ -88,6 +89,7 @@ steps:
 #        - 'echo "run tests with -n 8"'
 #        - "python -m pytest -n 8 -v $(cat test_preparation/shuffled_tests_torch_test_list.txt)"
 #      key: run_tests
+    # TO be generated dynamically
     - label: "run_tests in parallel"
       plugins:
         - docker#v5.12.0:
