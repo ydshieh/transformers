@@ -40,12 +40,10 @@ class Job:
             "buildkite-agent artifact download \"test_preparation/*\" test_preparation/ --step fetch_tests",
             "ls -la test_preparation",
             "echo \"pip install packages\"",
-            "python -m pip install -U -e .",
+            "uv pip install -U -e .",
             f"TEST_SPLITS=$(python -c 'import os; import json; fp = open(\"{test_file}\"); data = json.load(fp); fp.close(); test_splits = data[os.environ[\"BUILDKITE_PARALLEL_JOB\"]]; test_splits = \" \".join(test_splits); print(test_splits);')",
             "echo \"$$TEST_SPLITS\"",
             "python -m pytest -n 8 -v $$TEST_SPLITS",
-            # # 'TEST_SPLITS_2=$(python -c ''import os; import json; fp = open("test_preparation/splitted_shuffled_tests_torch_test_list.json"); data = json.load(fp); fp.close(); test_splits = data[os.environ["BUILDKITE_PARALLEL_JOB"]]; test_splits = " ".join(test_splits); print(test_splits);'')',
-            # "python -m pytest -n 8 -v $$TEST_SPLITS_2",
         ]
 
         return job
@@ -60,7 +58,6 @@ torch_job = Job(
     "torch",
     docker_image="huggingface/transformers-torch-light",
     # marker="not generate",
-    # parallelism=6,
 )
 
 REGULAR_TESTS = [torch_job]
@@ -70,12 +67,6 @@ ALL_TESTS = REGULAR_TESTS
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
-    # parser.add_argument(
-    #     "--n_splits", type=int, required=False, default=1, help="Where to store the list of tests to run"
-    # )
-    # parser.add_argument(
-    #     "--input_file", type=str, required=True, help="Where to store the list of tests to run"
-    # )
     parser.add_argument(
         "--output_file", type=str, required=True, help="Where to store the list of tests to run"
     )
@@ -88,9 +79,6 @@ if __name__ == '__main__':
     for job in jobs:
         config["steps"].append(job.to_dict())
 
-    folder = ".buildkite"
-
     print(args.output_file)
-    # with open(os.path.join(folder, args.output_file), "w") as f:
     with open(args.output_file, "w") as f:
         f.write(yaml.dump(config, sort_keys=False, default_flow_style=False, width=float("inf")))
