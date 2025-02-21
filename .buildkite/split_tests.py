@@ -37,7 +37,7 @@ if __name__ == '__main__':
     for fn in fns:
         if fn.endswith("_test_list.txt"):
 
-            splitted = foo(os.path.join(args.input_dir, fn), n_splits=n_splits)
+            splitted = foo(os.path.join(args.input_dir, fn))
 
             import json
             with open(os.path.join(args.input_dir, f"splitted_{fn.replace('.txt', '.json')}"), "w") as fp:
