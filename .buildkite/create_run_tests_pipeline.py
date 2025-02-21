@@ -26,7 +26,24 @@ if __name__ == '__main__':
     config["steps"] = []
     job = dict()
     job["label"] = "dummy"
+    job["plugin"] = [
+        {
+            "docker#v5.12.0": {
+                "image": "huggingface/transformers-torch-light",
+                "always-pull": "true",
+                "mount-buildkite-agent": "true",
+                "environment": [
+                    "OMP_NUM_THREADS=1",
+                    "BUILDKITE_PARALLEL_JOB",
+                    "BUILDKITE_BRANCH",
+                ]
+            }
+        }
+    ]
     job["commands"] = [
+        "echo $$BUILDKITE_BRANCH",
+        "echo $$BUILDKITE_PARALLEL_JOB",
+        "echo $$OMP_NUM_THREADS",
         "mkdir test_preparation",
         # "pwd",
         # "ls -la",
@@ -39,6 +56,7 @@ if __name__ == '__main__':
         # "python -m pytest -n 8 -v $$TEST_SPLITS_2",
     ]
     config["steps"].append(job)
+
 
     folder = ".buildkite"
 
