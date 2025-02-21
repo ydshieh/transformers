@@ -35,7 +35,7 @@ class Job:
             "ls -la test_preparation",
             "echo \"pip install packages\"",
             "python -m pip install -U -e .",
-            "TEST_SPLITS_2=$(python -c 'import os; import json; fp = open(\"test_preparation/splitted_tests_torch_test_list.json\"); data = json.load(fp); fp.close(); test_splits = data[os.environ[\"BUILDKITE_PARALLEL_JOB\"]]; test_splits = \" \".join(test_splits); print(test_splits);')",
+            f"TEST_SPLITS_2=$(python -c 'import os; import json; fp = open(\"test_preparation/splitted_{self.job_name}_test_list.json\"); data = json.load(fp); fp.close(); test_splits = data[os.environ[\"BUILDKITE_PARALLEL_JOB\"]]; test_splits = \" \".join(test_splits); print(test_splits);')",
             "echo \"$$TEST_SPLITS_2\"",
             "python -m pytest -n 8 -v $$TEST_SPLITS_2",
             # # 'TEST_SPLITS_2=$(python -c ''import os; import json; fp = open("test_preparation/splitted_shuffled_tests_torch_test_list.json"); data = json.load(fp); fp.close(); test_splits = data[os.environ["BUILDKITE_PARALLEL_JOB"]]; test_splits = " ".join(test_splits); print(test_splits);'')',
