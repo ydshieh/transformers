@@ -1,20 +1,23 @@
 import argparse
 import yaml
 import os
+from dataclasses import dataclass
 
+
+@dataclass
 class Job:
-
-    def __init__(self):
-        pass
+    name: str
+    docker_image: List[Dict[str, str]] = None
 
     def to_dict(self):
 
         job = dict()
-        job["label"] = "dummy"
+        job["label"] = self.job_name
         job["plugins"] = [
             {
                 "docker#v5.12.0": {
-                    "image": "huggingface/transformers-torch-light",
+                    # "image": "",
+                    "image": self.docker_image,
                     "always-pull": "true",
                     "mount-buildkite-agent": "true",
                     "environment": [
@@ -41,6 +44,23 @@ class Job:
 
         return job
 
+    @property
+    def job_name(self):
+        return self.name if ("examples" in self.name or "pipeline" in self.name or "pr_documentation" in self.name) else f"tests_{self.name}"
+
+
+# JOBS
+torch_job = CircleCIJob(
+    "torch",
+    docker_image=[{"image": "huggingface/transformers-torch-light"}],
+    # marker="not generate",
+    # parallelism=6,
+)
+
+REGULAR_TESTS = [torch_job]
+ALL_TESTS = REGULAR_TESTS
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
@@ -58,9 +78,9 @@ if __name__ == '__main__':
     config = dict()
     config["steps"] = []
 
-    job = Job()
-
-    config["steps"].append(job)
+    jobs = [k for k in ALL_TESTS if os.path.isfile(os.path.join("test_preparation" , f"{k.job_name}_test_list.txt"))]
+    for job in jobs:
+        config["steps"].append(job.to_dict())
 
     folder = ".buildkite"
 
