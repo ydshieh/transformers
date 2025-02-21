@@ -114,8 +114,8 @@ steps:
         - "echo $$TEST_SPLITS"
         - 'TEST_SPLITS_2=$(python -c ''import os; import json; fp = open("test_preparation/splitted_shuffled_tests_torch_test_list.json"); data = json.load(fp); fp.close(); test_splits = data[os.environ["BUILDKITE_PARALLEL_JOB"]]; test_splits = " ".join(test_splits); print(test_splits);'')'
         - "echo $$TEST_SPLITS_2"
-#        - 'echo "run tests with -n 8"'
-#        - "python -m pytest -n 8 -v $(cat test_preparation/shuffled_tests_torch_test_list.txt)"
+        - 'echo "run tests with -n 8"'
+        - "python -m pytest -n 8 -v $$TEST_SPLITS_2"
 #        # For the record only
 #        - 'if [ "1" = "1" ]; then echo "1"; fi'
 #        - 'if [ "1" = "0" ]; then echo "1"; else echo "0"; fi'
