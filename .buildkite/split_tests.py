@@ -19,7 +19,7 @@ def foo(input_file, n_splits=None):
     current = 0
     for idx in range(n_splits):
         end = current + n_items[idx]
-        final[idx] = data[current: end]
+        splitted[idx] = data[current: end]
         current = end
 
     return splitted
