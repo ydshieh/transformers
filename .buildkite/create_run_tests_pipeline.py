@@ -41,17 +41,13 @@ if __name__ == '__main__':
         }
     ]
     job["commands"] = [
-        "echo $$BUILDKITE_BRANCH",
-        "echo $$BUILDKITE_PARALLEL_JOB",
-        "echo $$OMP_NUM_THREADS",
         "mkdir test_preparation",
-        # "pwd",
-        # "ls -la",
         "buildkite-agent artifact download \"test_preparation/*\" test_preparation/ --step fetch_tests",
         "ls -la test_preparation",
-        # "echo \"pip install packages\"",
-        # "python -m pip install -U -e .",
-        # # 'python -c ''import os; import json; fp = open("test_preparation/splitted_shuffled_tests_torch_test_list.json"); data = json.load(fp); fp.close(); print(data[os.environ["BUILDKITE_PARALLEL_JOB"]]);''',
+        "echo \"pip install packages\"",
+        "python -m pip install -U -e .",
+        "TEST_SPLITS_2=$(python -c 'import os; import json; fp = open(\"test_preparation/splitted_shuffled_tests_torch_test_list.json\"); data = json.load(fp); fp.close(); test_splits = data[os.environ[\"BUILDKITE_PARALLEL_JOB\"]]; test_splits = \" \".join(test_splits); print(test_splits);')",
+        "echo \"$TEST_SPLITS_2\"",
         # # 'TEST_SPLITS_2=$(python -c ''import os; import json; fp = open("test_preparation/splitted_shuffled_tests_torch_test_list.json"); data = json.load(fp); fp.close(); test_splits = data[os.environ["BUILDKITE_PARALLEL_JOB"]]; test_splits = " ".join(test_splits); print(test_splits);'')',
         # "python -m pytest -n 8 -v $$TEST_SPLITS_2",
     ]
