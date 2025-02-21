@@ -60,7 +60,7 @@ torch_job = Job(
     # marker="not generate",
 )
 
-generate_job = CircleCIJob(
+generate_job = Job(
     "generate",
     docker_image="huggingface/transformers-torch-light",
     # marker="generate",
