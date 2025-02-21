@@ -26,33 +26,14 @@ steps:
             always-pull: true
             mount-buildkite-agent: true
       commands:
-        - "echo $(python3 --version)"
-#        - "echo $(git branch | sed -n '/\* /s///p')"
-        - "echo $(git log -n 1)"
-        - 'echo "pip install packages"'
-        # - "uv pip install -U -e ."
-#        - "python -m pip install -U -e ."
-        - "python -m pip install -e ."
+        - "uv pip install -U -e ."
         - "mkdir -p test_preparation"
-#        - 'echo "utils/tests_fetcher.py" without tee'
-#        - "python utils/tests_fetcher.py"
-        - 'echo "utils/tests_fetcher.py" with tee'
         - "python utils/tests_fetcher.py | tee tests_fetched_summary.txt"
-##        - "python utils/tests_fetcher.py --filter_tests"
-        - "ls -la test_preparation"
-        - "ls -la test_preparation/tests_torch_test_list.txt"
-        - 'echo "show tests_torch_test_list.txt"'
-        - "tail -10000 test_preparation/tests_torch_test_list.txt"
-        - 'echo "show tests_generate_test_list.txt"'
-        - "tail -10000 test_preparation/tests_generate_test_list.txt"
-        - 'echo "show pipelines_torch_test_list.txt"'
-        - "tail -10000 test_preparation/pipelines_torch_test_list.txt"
+        - "python utils/tests_fetcher.py --filter_tests"
         - 'echo "shuffle tests_torch_test_list.txt"'
         - "shuf test_preparation/tests_torch_test_list.txt > test_preparation/shuffled_tests_torch_test_list.txt"
-        - 'echo "split shuffled_tests_torch_test_list.txt"'
         - "python .buildkite/split_tests.py --input_file test_preparation/shuffled_tests_torch_test_list.txt --output_file test_preparation/splitted_shuffled_tests_torch_test_list.json --n_splits 2"
         - "python .buildkite/create_run_tests_pipeline.py --output_file .buildkite/generated_config.yml"
-        - "cat .buildkite/generated_config.yml"
         - "buildkite-agent pipeline upload .buildkite/generated_config.yml"
       # Need to generate a new file for new jobs/steps then upload
       artifact_paths:
