@@ -58,36 +58,36 @@ steps:
 #      commands:
 #        - "mkdir test_preparation_local"
 #        - 'buildkite-agent artifact download "test_preparation/*" test_preparation_local/ --step fetch_tests'
-    - label: "run_tests"
-      plugins:
-#        - artifacts#v1.9.0:
-#            download: "test_preparation/*"
-        - docker#v5.12.0:
-            image: "huggingface/transformers-torch-light"
-            always-pull: true
-            mount-buildkite-agent: true
-            environment:
-              - "OMP_NUM_THREADS=1"
-      commands:
-        - "ls -la"
-        - "echo $(python3 --version)"
-        - "mkdir test_preparation"
-        - 'buildkite-agent artifact download "test_preparation/*" test_preparation/ --step fetch_tests'
-        - 'echo "show tests_torch_test_list.txt"'
-        - "ls -la test_preparation"
-        - 'echo "show original tests_torch_test_list.txt"'
-        - "tail -10000 test_preparation/tests_torch_test_list.txt"
-        - 'echo "show shuffled tests_torch_test_list.txt"'
-        - "tail -10000 test_preparation/shuffled_tests_torch_test_list.txt"
-        - 'echo "show splitted shuffled_tests_torch_test_list.txt"'
-        - "tail -10000 test_preparation/splitted_shuffled_tests_torch_test_list.json"
-        - 'echo "pip install packages"'
-        - "python -m pip install -U -e ."
-        - 'echo "run tests"'
-        - "python -m pytest -v $(cat test_preparation/shuffled_tests_torch_test_list.txt)"
-        - 'echo "run tests with -n 8"'
-        - "python -m pytest -n 8 -v $(cat test_preparation/shuffled_tests_torch_test_list.txt)"
-      key: run_tests
+#    - label: "run_tests"
+#      plugins:
+##        - artifacts#v1.9.0:
+##            download: "test_preparation/*"
+#        - docker#v5.12.0:
+#            image: "huggingface/transformers-torch-light"
+#            always-pull: true
+#            mount-buildkite-agent: true
+#            environment:
+#              - "OMP_NUM_THREADS=1"
+#      commands:
+#        - "ls -la"
+#        - "echo $(python3 --version)"
+#        - "mkdir test_preparation"
+#        - 'buildkite-agent artifact download "test_preparation/*" test_preparation/ --step fetch_tests'
+#        - 'echo "show tests_torch_test_list.txt"'
+#        - "ls -la test_preparation"
+#        - 'echo "show original tests_torch_test_list.txt"'
+#        - "tail -10000 test_preparation/tests_torch_test_list.txt"
+#        - 'echo "show shuffled tests_torch_test_list.txt"'
+#        - "tail -10000 test_preparation/shuffled_tests_torch_test_list.txt"
+#        - 'echo "show splitted shuffled_tests_torch_test_list.txt"'
+#        - "tail -10000 test_preparation/splitted_shuffled_tests_torch_test_list.json"
+#        - 'echo "pip install packages"'
+#        - "python -m pip install -U -e ."
+#        - 'echo "run tests"'
+#        - "python -m pytest -v $(cat test_preparation/shuffled_tests_torch_test_list.txt)"
+#        - 'echo "run tests with -n 8"'
+#        - "python -m pytest -n 8 -v $(cat test_preparation/shuffled_tests_torch_test_list.txt)"
+#      key: run_tests
     - label: "run_tests in parallel"
       plugins:
         - docker#v5.12.0:
@@ -105,6 +105,7 @@ steps:
         - "tail -10000 test_preparation/splitted_shuffled_tests_torch_test_list.json"
         - 'echo "pip install packages"'
         - "python -m pip install -U -e ."
+        - 'python -c ''import json; fp = open("tests.json"); data = json.load(fp); fp.close(); print(data["0"]);'''
 #        - 'echo "run tests with -n 8"'
 #        - "python -m pytest -n 8 -v $(cat test_preparation/shuffled_tests_torch_test_list.txt)"
 #        # For the record only
