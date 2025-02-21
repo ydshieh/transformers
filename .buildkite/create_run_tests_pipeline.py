@@ -12,6 +12,11 @@ class Job:
 
     def to_dict(self):
 
+        test_file = f"test_preparation/splitted_{self.job_name}_test_list.json"
+        # `parallelism` should correspond to the test split file computed previously
+        with open(test_file) as fp:
+            parallelism = len(json.load(fp))
+
         job = dict()
         job["label"] = self.job_name
         job["plugins"] = [
@@ -28,16 +33,16 @@ class Job:
                 }
             }
         ]
-        job["parallelism"] = 2
+        job["parallelism"] = parallelism
         job["commands"] = [
             "mkdir test_preparation",
             "buildkite-agent artifact download \"test_preparation/*\" test_preparation/ --step fetch_tests",
             "ls -la test_preparation",
             "echo \"pip install packages\"",
             "python -m pip install -U -e .",
-            f"TEST_SPLITS_2=$(python -c 'import os; import json; fp = open(\"test_preparation/splitted_{self.job_name}_test_list.json\"); data = json.load(fp); fp.close(); test_splits = data[os.environ[\"BUILDKITE_PARALLEL_JOB\"]]; test_splits = \" \".join(test_splits); print(test_splits);')",
-            "echo \"$$TEST_SPLITS_2\"",
-            "python -m pytest -n 8 -v $$TEST_SPLITS_2",
+            f"TEST_SPLITS=$(python -c 'import os; import json; fp = open(\"{test_file}\"); data = json.load(fp); fp.close(); test_splits = data[os.environ[\"BUILDKITE_PARALLEL_JOB\"]]; test_splits = \" \".join(test_splits); print(test_splits);')",
+            "echo \"$$TEST_SPLITS\"",
+            "python -m pytest -n 8 -v $$TEST_SPLITS",
             # # 'TEST_SPLITS_2=$(python -c ''import os; import json; fp = open("test_preparation/splitted_shuffled_tests_torch_test_list.json"); data = json.load(fp); fp.close(); test_splits = data[os.environ["BUILDKITE_PARALLEL_JOB"]]; test_splits = " ".join(test_splits); print(test_splits);'')',
             # "python -m pytest -n 8 -v $$TEST_SPLITS_2",
         ]
