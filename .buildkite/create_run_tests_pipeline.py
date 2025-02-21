@@ -52,7 +52,7 @@ class Job:
 # JOBS
 torch_job = Job(
     "torch",
-    docker_image=[{"image": "huggingface/transformers-torch-light"}],
+    docker_image="huggingface/transformers-torch-light",
     # marker="not generate",
     # parallelism=6,
 )
