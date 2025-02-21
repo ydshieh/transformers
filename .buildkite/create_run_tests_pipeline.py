@@ -50,7 +50,7 @@ class Job:
 
 
 # JOBS
-torch_job = CircleCIJob(
+torch_job = Job(
     "torch",
     docker_image=[{"image": "huggingface/transformers-torch-light"}],
     # marker="not generate",
