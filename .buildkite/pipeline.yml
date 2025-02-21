@@ -24,6 +24,7 @@ steps:
         - docker#v5.12.0:
             image: "huggingface/transformers-quality"
             always-pull: true
+            mount-buildkite-agent: true
       commands:
         - "echo $(python3 --version)"
 #        - "echo $(git branch | sed -n '/\* /s///p')"
