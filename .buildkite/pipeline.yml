@@ -96,6 +96,7 @@ steps:
             mount-buildkite-agent: true
             environment:
               - "OMP_NUM_THREADS=1"
+              - "BUILDKITE_PARALLEL_JOB"
       # Need to be created dynamically
       parallelism: 2
       commands:
@@ -105,6 +106,8 @@ steps:
         - "tail -10000 test_preparation/splitted_shuffled_tests_torch_test_list.json"
         - 'echo "pip install packages"'
         - "python -m pip install -U -e ."
+        - "echo $BUILDKITE_PARALLEL_JOB"
+        - "echo $$BUILDKITE_PARALLEL_JOB"
         - 'python -c ''import json; fp = open("test_preparation/splitted_shuffled_tests_torch_test_list.json"); data = json.load(fp); fp.close(); print(data["0"]);'''
         - 'python -c ''import json; fp = open("test_preparation/splitted_shuffled_tests_torch_test_list.json"); data = json.load(fp); fp.close(); print(data["$BUILDKITE_PARALLEL_JOB"]);'''
 #        - 'echo "run tests with -n 8"'
