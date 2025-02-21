@@ -40,6 +40,7 @@ if __name__ == '__main__':
             }
         }
     ]
+    job["parallelism"] = 2
     job["commands"] = [
         "mkdir test_preparation",
         "buildkite-agent artifact download \"test_preparation/*\" test_preparation/ --step fetch_tests",
