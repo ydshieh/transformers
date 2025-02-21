@@ -16,7 +16,6 @@ class Job:
         job["plugins"] = [
             {
                 "docker#v5.12.0": {
-                    # "image": "",
                     "image": self.docker_image,
                     "always-pull": "true",
                     "mount-buildkite-agent": "true",

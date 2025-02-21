@@ -39,8 +39,8 @@ steps:
         - "cat test_preparation/splitted_tests_torch_test_list.json"
         - "cat test_preparation/tests_generate_test_list.txt"
         - "cat test_preparation/splitted_tests_generate_test_list.json"
-#        - "python .buildkite/create_run_tests_pipeline.py --output_file .buildkite/generated_config.yml"
-#        - "buildkite-agent pipeline upload .buildkite/generated_config.yml"
+        - "python .buildkite/create_run_tests_pipeline.py --output_file .buildkite/generated_config.yml"
+        - "buildkite-agent pipeline upload .buildkite/generated_config.yml"
       # Need to generate a new file for new jobs/steps then upload
       artifact_paths:
         - "test_preparation/*"
