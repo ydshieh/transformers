@@ -15,7 +15,7 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    with open("./buildkite/config2.yml") as fp:
+    with open(".buildkite/config2.yml") as fp:
         data = fp.read()
     with open(args.output_file, "w") as fp:
         fp.write(data)
