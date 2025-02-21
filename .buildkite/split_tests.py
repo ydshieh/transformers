@@ -10,7 +10,7 @@ def foo(input_file, n_splits=None):
 
     with open(input_file) as fp:
         data = fp.read().splitlines()
-        data = shuffle(data)
+        shuffle(data)
 
     n_items = len(data)
     n_items_per_split = n_items // n_splits
