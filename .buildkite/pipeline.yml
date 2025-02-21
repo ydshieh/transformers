@@ -105,7 +105,7 @@ steps:
         - "tail -10000 test_preparation/splitted_shuffled_tests_torch_test_list.json"
         - 'echo "pip install packages"'
         - "python -m pip install -U -e ."
-        - 'python -c ''import json; fp = open("tests.json"); data = json.load(fp); fp.close(); print(data["0"]);'''
+#        - 'python -c ''import json; fp = open("tests.json"); data = json.load(fp); fp.close(); print(data["0"]);'''
 #        - 'echo "run tests with -n 8"'
 #        - "python -m pytest -n 8 -v $(cat test_preparation/shuffled_tests_torch_test_list.txt)"
 #        # For the record only
