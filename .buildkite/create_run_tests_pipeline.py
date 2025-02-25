@@ -102,7 +102,8 @@ generate_job = Job(
 )
 
 REGULAR_TESTS = [torch_job, generate_job]
-ALL_TESTS = REGULAR_TESTS
+PIPELINE_TESTS = [pipelines_torch_job]
+ALL_TESTS = REGULAR_TESTS + PIPELINE_TESTS
 
 
 if __name__ == '__main__':
