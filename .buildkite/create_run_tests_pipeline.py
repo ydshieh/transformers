@@ -71,7 +71,7 @@ class Job:
             "dpkg-query --show --showformat='${Installed-Size}\t${Package}\n' | sort -rh | head -25 | sort -h | awk '{ package=$2; sub(\".*/\", "", package); printf(\"%.5f GB %s\n\", $1/1024/1024, package)}' || true",
             f"TEST_SPLITS=$(python -c 'import os; import json; fp = open(\"{test_file}\"); data = json.load(fp); fp.close(); test_splits = data[os.environ[\"BUILDKITE_PARALLEL_JOB\"]]; test_splits = \" \".join(test_splits); print(test_splits);')",
             "echo \"$$TEST_SPLITS\"",
-            f"python -m pytest {marker_cmd} pytest -n 8 -v $$TEST_SPLITS",
+            f"python -m pytest {marker_cmd} -n 8 -v $$TEST_SPLITS",
         ]
 
         return job
