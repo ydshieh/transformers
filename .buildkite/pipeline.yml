@@ -46,6 +46,26 @@ steps:
       artifact_paths:
         - "test_preparation/*"
       key: fetch_tests
+
+    - label: "check_code_quality"
+      plugins:
+        - docker#v5.12.0:
+            image: "huggingface/transformers-quality"
+            always-pull: true
+            mount-buildkite-agent: true
+            environment:
+              - "TRANSFORMERS_IS_CI=yes"
+      commands:
+        - uv pip install -e ".[quality]"
+        - pip freeze | tee installed.txt
+        - python -c "from transformers import *" || (echo '🚨 import failed, this means you introduced unprotected imports! 🚨'; exit 1)
+        - ruff check examples tests src utils
+        - ruff format tests src utils --check
+        - python utils/custom_init_isort.py --check_only
+        - python utils/sort_auto_mappings.py --check_only
+        - python utils/check_doc_toc.py
+        - python utils/check_docstrings.py --check_all
+      key: check_code_quality
 #    - label: "run_tests_dummy"
 #      commands:
 #        - "mkdir test_preparation_local"
