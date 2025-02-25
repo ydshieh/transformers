@@ -88,7 +88,7 @@ torch_job = Job(
     marker="not generate",
 )
 
-pipelines_torch_job = CircleCIJob(
+pipelines_torch_job = Job(
     "pipelines_torch",
     additional_env={"RUN_PIPELINE_TESTS": "true"},
     docker_image="huggingface/transformers-torch-light",
