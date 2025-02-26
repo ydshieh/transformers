@@ -3,7 +3,7 @@ name: Change PR to draft
 on:
   pull_request_target:
     types: [opened, reopened, synchronize]
-#  # TODO: delete 1
+#  # TODO: delete 2
 #  pull_request:
 #    types: [opened, reopened, synchronize]
 
@@ -19,4 +19,4 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           echo $PR_NUMBER
-          gh pr ready $PR_NUMBER --repo huggingface/transformers --undo
+          gh pr ready $PR_NUMBER --repo ydshieh/transformers --undo
