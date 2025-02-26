@@ -17,6 +17,7 @@ jobs:
         env:
           PR_NUMBER: ${{ github.event.number }}
           GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
         run: |
           echo $PR_NUMBER
-          gh pr ready $PR_NUMBER --repo ydshieh/transformers --undo
+          gh pr ready $PR_NUMBER --repo $REPO --undo
