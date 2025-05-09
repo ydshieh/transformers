@@ -2,7 +2,7 @@ name: Trigger CircleCI
 
 
 on:
-  pull_request:
+  pull_request_target:
     types: [ready_for_review]
 
 
