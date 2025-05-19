@@ -68,4 +68,5 @@ jobs:
       - name: Check
         run: |
           ls -la
-          cat values/value_1.txt
+          cat values/prev_workflow_run_id.txt
+          cat values/other_workflow_run_id.txt
