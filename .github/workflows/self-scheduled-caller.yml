@@ -31,8 +31,8 @@ jobs:
         id: setup
         run: |
           mkdir "values"
-          echo "{{ inputs.prev_workflow_run_id }}" > "values/prev_workflow_run_id.txt"
-          echo "{{ inputs.other_workflow_run_id }}" > "values/other_workflow_run_id.txt"
+          echo "${{ inputs.prev_workflow_run_id }}" > "values/prev_workflow_run_id.txt"
+          echo "${{ inputs.other_workflow_run_id }}" > "values/other_workflow_run_id.txt"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
