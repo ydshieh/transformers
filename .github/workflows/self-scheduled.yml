@@ -52,5 +52,7 @@ jobs:
         run: |
           echo ${{ github.event.inputs.prev_workflow_run_id }}
           echo ${{ github.event.inputs.other_workflow_run_id }}
+          echo ${{ github.event.inputs.ci_event }}
           echo ${{ inputs.prev_workflow_run_id }}
           echo ${{ inputs.other_workflow_run_id }}
+          echo ${{ inputs.ci_event }}
