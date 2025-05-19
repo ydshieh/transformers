@@ -46,6 +46,7 @@ env:
 jobs:
   setup:
     name: Setup
+    needs: setup222
     runs-on: ubuntu-22.04
     steps:
       - name: Update clone
