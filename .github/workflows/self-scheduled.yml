@@ -69,11 +69,11 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-            name: values
-            path: values
+            name: values3
+            path: values3
       
       - name: Check
         run: |
           ls -la
-          cat values/prev_workflow_run_id.txt
-          cat values/other_workflow_run_id.txt
+          cat values3/prev_workflow_run_id.txt
+          cat values3/other_workflow_run_id.txt
