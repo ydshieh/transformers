@@ -68,3 +68,4 @@ jobs:
       - name: Check
         run: |
           ls -la
+          cat values/value_1.txt
