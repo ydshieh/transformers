@@ -46,7 +46,6 @@ env:
 jobs:
   setup:
     name: Setup
-    needs: setup222
     runs-on: ubuntu-22.04
     steps:
       - name: Update clone
@@ -65,9 +64,4 @@ jobs:
     steps:
       - name: Update clone
         run: |
-          echo ${{ github.event.inputs.prev_workflow_run_id || 'ydshieh' }}
-          echo ${{ github.event.inputs.other_workflow_run_id || 'ydshieh 2' }}
-          echo ${{ github.event.inputs.ci_event || 'ydshieh 3' }}
-          echo ${{ inputs.prev_workflow_run_id || 'ydshieh 4' }}
-          echo ${{ inputs.other_workflow_run_id || 'ydshieh 5' }}
-          echo ${{ inputs.ci_event  || 'ydshieh 6' }}
+          echo ${{ jobs.setup222 }}
