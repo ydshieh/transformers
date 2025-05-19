@@ -23,7 +23,7 @@ on:
 
 
 jobs:
-  setup:
+  setup222:
     name: Setup
     runs-on: ubuntu-22.04
     steps:
