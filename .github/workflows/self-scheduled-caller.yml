@@ -22,7 +22,7 @@ on:
         default: "bbb"
 
 env:
-    prev_workflow_run_id: ""
+    prev_workflow_run_id: "eee"
     other_workflow_run_id: ""
 
 jobs:
