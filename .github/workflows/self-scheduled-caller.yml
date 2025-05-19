@@ -23,6 +23,15 @@ on:
 
 
 jobs:
+  setup:
+    name: Setup
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Setup
+        id: setup
+        run: |
+          echo bonbon
+
   model-ci:
     name: Model CI
     uses: ./.github/workflows/self-scheduled.yml
