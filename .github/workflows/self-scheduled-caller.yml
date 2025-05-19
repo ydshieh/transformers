@@ -30,7 +30,13 @@ jobs:
       - name: Setup
         id: setup
         run: |
-          echo bonbon
+          mkdir "values"
+          echo "bonbon" > "values/value_1.txt"
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: values
 
   model-ci:
     name: Model CI
