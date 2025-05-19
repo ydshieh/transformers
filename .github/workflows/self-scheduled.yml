@@ -76,5 +76,6 @@ jobs:
         run: |
           ls -la
           ls -la values
+          ls -la values/values          
           cat values/prev_workflow_run_id.txt
           cat values/other_workflow_run_id.txt
