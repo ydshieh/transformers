@@ -2,7 +2,7 @@ name: Self-hosted runner (AMD scheduled CI caller)
 
 on:
   schedule:
-    - cron: "5 * * * *"
+    - cron: "5,10,15,20,25,30,35,40,45,50,55,0 * * * *"
   push:
     branches:
       - all_jobs_can_compare_against_prev_runs_clean_trigger
