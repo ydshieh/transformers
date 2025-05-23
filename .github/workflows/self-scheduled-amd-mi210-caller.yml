@@ -23,4 +23,5 @@ jobs:
           echo $GITHUB_EVENT_NAME
           echo $GITHUB_EVENT_PATH
           cat $GITHUB_EVENT_PATH
+          echo $GITHUB_WORKFLOW_REF
           echo ${{ toJson(github.event.workflow_run) }}
