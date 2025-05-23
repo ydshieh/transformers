@@ -18,7 +18,9 @@ jobs:
 
         run: |
           echo ${{ github.event_name }}
-          echo ${{ toJson(github.event.workflow_run) }}
           echo ${{ github.event.workflow_run.head_branch }}
           echo ${{ github.event.workflow_run.event }}
-          echo ${{ toJson(github.event.workflow) }}
+          echo $GITHUB_EVENT_NAME
+          echo $GITHUB_EVENT_PATH
+          cat $GITHUB_EVENT_PATH
+          echo ${{ toJson(github.event.workflow_run) }}
