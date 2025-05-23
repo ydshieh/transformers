@@ -3,7 +3,7 @@ name: Self-hosted runner (AMD mi210 scheduled CI caller)
 on:
   workflow_run:
     workflows: ["Self-hosted runner (AMD scheduled CI caller)"]
-    branches: ["all_jobs_can_compare_against_prev_runs_clean_trigger"]
+    branches: ["main", "all_jobs_can_compare_against_prev_runs_clean_trigger"]
     types: [completed]
   push:
     branches:
