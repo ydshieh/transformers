@@ -3,6 +3,9 @@ name: Self-hosted runner (AMD scheduled CI caller)
 on:
   schedule:
     - cron: "17 2 * * *"
+  push:
+    branches:
+      - all_jobs_can_compare_against_prev_runs_clean_trigger
 
 jobs:
   run_scheduled_amd_ci:
