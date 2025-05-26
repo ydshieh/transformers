@@ -215,7 +215,7 @@ jobs:
           prNumber: ${{ steps.pr_info.outputs.prNumber }}
 
   trigger:
-    uses: ./.github/workflows/build_pr_documentation.yml
+    uses: "./.github/workflows/build_pr_documentation.yml"
     with:
       pr_number: 3
       commit_sha: 4
