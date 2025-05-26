@@ -188,9 +188,9 @@ jobs:
 
           # If there are changes after running style/quality, commit them
           if [ -n "$(git status --porcelain)" ]; then
-            echo "new_commit_sha=$(git log -n 1 --format=format:%H)" >> $GITHUB_OUTPUT
             git add .
             git commit -m "Apply style fixes"
+            echo "new_commit_sha=$(git log -n 1 --format=format:%H)" >> $GITHUB_OUTPUT
             # Push to the original contributor's forked branch
             echo "changes_pushed=true" >> $GITHUB_OUTPUT
             echo $(git log -n 1 --format=format:%H)
