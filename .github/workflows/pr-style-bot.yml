@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   style:
-    uses: .github/workflows/style-bot-action.yml
+    uses: .github/workflows/style-bot-action.yml@main
     with:
       python_quality_dependencies: "[quality]"
       style_command_type: "default"
