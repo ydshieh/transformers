@@ -214,7 +214,7 @@ jobs:
         env:
           prNumber: ${{ steps.pr_info.outputs.prNumber }}
 
-      - name: Trigger Build PR Documentation job
+  trigger:
         if: steps.commit_and_push.outputs.changes_pushed == 'true'
         uses: ydshieh/transformers/.github/workflows/build_pr_documentation.yml@main
         with:
