@@ -188,6 +188,7 @@ jobs:
             git add .
             git commit -m "Apply style fixes"
             # Push to the original contributor's forked branch
+            git push origin HEAD:$HEADREF
             echo "changes_pushed=true" >> $GITHUB_OUTPUT
             echo "new_commit_sha=$(git log -n 1 --format=format:%H)" >> $GITHUB_OUTPUT
             echo $(git log -n 1 --format=format:%H)
@@ -216,7 +217,7 @@ jobs:
 
       - name: Trigger Build PR Documentation job
         if: steps.commit_and_push.outputs.changes_pushed == 'true'
-        uses: ./.github/workflows/build_pr_documentation
+        uses: ./.github/workflows/build_pr_documentation@yml
         with:
           pr_number: ${{ steps.pr_info.outputs.prNumber }}
           commit_sha: ${{ steps.commit_and_push.outputs.new_commit_sha }}
