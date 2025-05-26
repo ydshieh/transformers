@@ -190,9 +190,11 @@ jobs:
             # Push to the original contributor's forked branch
             git push origin HEAD:$HEADREF
             echo "changes_pushed=true" >> $GITHUB_OUTPUT
+            echo "new_commit_sha=$(git log -n 1 --format=format:%H)" >> $GITHUB_OUTPUT
           else
             echo "No changes to commit."
             echo "changes_pushed=false" >> $GITHUB_OUTPUT
+            echo "new_commit_sha=$(git log -n 1 --format=format:%H)" >> $GITHUB_OUTPUT
           fi
 
       - name: Comment on PR with workflow run link
@@ -217,4 +219,4 @@ jobs:
         uses: .github/workflows/build_pr_documentation.yml
         with:
           pr_number: ${{ steps.pr_info.outputs.prNumber }}
-          commit_sha: ${{ steps.pr_info.outputs.headRef }}
+          commit_sha: ${{ steps.commit_and_push.outputs.new_commit_sha }}
