@@ -60,6 +60,9 @@ jobs:
     needs: check-permissions
     if: needs.check-permissions.outputs.is_authorized == 'true'
     runs-on: ubuntu-latest
+    outputs:
+      pr_number: ${{ steps.commit_and_push.outputs.pr_number }}
+      new_commit_sha: ${{ steps.commit_and_push.outputs.new_commit_sha }}
     steps:
       - name: Extract PR details
         id: pr_info
@@ -215,7 +218,8 @@ jobs:
           prNumber: ${{ steps.pr_info.outputs.prNumber }}
 
   trigger:
+    needs: run-style-bot
     uses: "./.github/workflows/build_pr_documentation.yml"
     with:
-      pr_number: 3
-      commit_sha: 4
+      pr_number: ${{ needs.run-style-bot.outputs.pr_number }}
+      commit_sha: ${{ needs.run-style-bot.outputs.new_commit_sha }}
