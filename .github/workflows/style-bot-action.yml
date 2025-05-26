@@ -61,7 +61,7 @@ jobs:
     if: needs.check-permissions.outputs.is_authorized == 'true'
     runs-on: ubuntu-latest
     outputs:
-      pr_number: ${{ steps.commit_and_push.outputs.pr_number }}
+      pr_number: ${{ steps.pr_info.outputs.prNumber }}
       new_commit_sha: ${{ steps.commit_and_push.outputs.new_commit_sha }}
     steps:
       - name: Extract PR details
