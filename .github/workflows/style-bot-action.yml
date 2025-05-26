@@ -214,9 +214,3 @@ jobs:
         env:
           prNumber: ${{ steps.pr_info.outputs.prNumber }}
 
-  trigger:
-        if: steps.commit_and_push.outputs.changes_pushed == 'true'
-        uses: ./.github/workflows/build_pr_documentation.yml
-        with:
-          pr_number: ${{ steps.pr_info.outputs.prNumber }}
-          commit_sha: ${{ steps.commit_and_push.outputs.new_commit_sha }}
