@@ -24,3 +24,4 @@ jobs:
       pr_number: ${{ inputs.pr_number || github.event.number }}
       package: transformers
       languages: en
+      repo_owner: ydshieh
