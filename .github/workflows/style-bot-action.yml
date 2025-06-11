@@ -211,7 +211,6 @@ jobs:
           fi
 
       - name: Comment on PR with workflow run link
-        if: steps.commit_and_push.outputs.changes_pushed == 'true'
         uses: actions/github-script@v6
         with:
           script: |
