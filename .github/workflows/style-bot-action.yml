@@ -153,7 +153,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: prNumber,
-              body: Style fix is beginning .... [View the workflow run here](${runUrl}).
+              body: `Style fix is beginning .... [View the workflow run here](${runUrl}).`
             });
         env:
           prNumber: ${{ steps.pr_info.outputs.prNumber }}
@@ -230,9 +230,9 @@ jobs:
         id: prepare_final_comment
         run: |
           if [ "${{ steps.commit_and_push.outputs.changes_pushed }}" = 'true' ]; then
-            echo "final_comment='Style bot fixed some files and pushed the changes.'" >> $GITHUB_OUTPUT
+            echo "final_comment=Style bot fixed some files and pushed the changes." >> $GITHUB_OUTPUT
           else
-            echo "final_comment='Style fix runs successfully without any file modified.'" >> $GITHUB_OUTPUT
+            echo "final_comment=Style fix runs successfully without any file modified." >> $GITHUB_OUTPUT
           fi
 
       - name: Comment on PR
