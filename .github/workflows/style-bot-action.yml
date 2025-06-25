@@ -245,10 +245,10 @@ jobs:
             const prNumber = parseInt(process.env.prNumber, 10);
             const runUrl = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
 
-            await github.rest.issues.createComment({
+            await github.rest.issues.updateComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: prNumber,
+              comment_id: ${{ steps.init_comment.outputs.comment_id }},
               body: `${{ steps.prepare_final_comment.outputs.final_comment }}`
             });
         env:
