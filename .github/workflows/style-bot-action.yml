@@ -28,14 +28,7 @@ on:
         bot_token:
           required: true
           description: "GitHub token with permissions to comment and push to PR"
-      outputs:
-        new_commit_sha:
-          description: "The new commit sha if any"
-          value: ${{ jobs.run-style-bot.outputs.new_commit_sha }}
-        pr_number:
-          description: "The PR number"
-          value: ${{ jobs.run-style-bot.outputs.pr_number }}
-
+  
 jobs:
   check-permissions:
     if: >
@@ -67,9 +60,6 @@ jobs:
     needs: check-permissions
     if: needs.check-permissions.outputs.is_authorized == 'true'
     runs-on: ubuntu-latest
-    outputs:
-      pr_number: ${{ steps.pr_info.outputs.prNumber }}
-      new_commit_sha: ${{ steps.commit_and_push.outputs.new_commit_sha }}
     steps:
       - name: Extract PR details
         id: pr_info
@@ -110,7 +100,7 @@ jobs:
           # You may need fetch-depth: 0 for being able to push
           fetch-depth: 0
           token: ${{ secrets.bot_token }}
-      
+
       - name: Check commit timestamps
         env:
           COMMENT_DATE: ${{ github.event.comment.created_at }}
@@ -143,7 +133,7 @@ jobs:
             git checkout $HEADREF
 
       - name: Comment on PR with workflow run link
-        id: init_comment      
+        id: init_comment
         uses: actions/github-script@v6
         with:
           script: |
