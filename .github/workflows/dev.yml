@@ -6,7 +6,7 @@ on:
 jobs:
   get-pr-number:
     name: Get PR number
-    if: github.event.review.state == 'approved'
+    if: github.event.review.state == 'commented'
     uses: ./.github/workflows/get-pr-number.yml
 
   show-pr-number:
