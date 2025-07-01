@@ -15,6 +15,8 @@
 
 import unittest
 
+cc = 1
+
 from transformers import ViTConfig
 from transformers.testing_utils import (
     require_accelerate,
