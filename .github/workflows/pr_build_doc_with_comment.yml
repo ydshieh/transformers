@@ -98,7 +98,8 @@ jobs:
       commit_sha: ${{ needs.get-pr-info.outputs.PR_HEAD_SHA }}
       pr_number: ${{ needs.get-pr-number.outputs.PR_NUMBER }}
       package: transformers
-      languages: ar de en es fr hi it ko pt tr zh ja te
+      languages: en
+      repo_owner: ydshieh
 
   update_run_status:
     name: Update Check Run Status
