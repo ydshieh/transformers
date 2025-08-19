@@ -14,10 +14,30 @@ on:
       - fix_nightly_ci
 
 jobs:
-  setup:
-    name: Setup
+  get-commit-sha:
+    name: Get the commit sha
     runs-on: ubuntu-22.04
+    outputs:
+      commit_sha: ${{ steps.get-sha.outputs.commit_sha }}
     steps:
-      - name: Setup
+      - name: Get the commit sha of the workflow run that triggers this run, or the commit sha of the push event
+        id: get-sha
         run: |
-          echo "Hello 2"
+          if [[ "${{ github.event_name }}" == "workflow_run" ]]; then
+            # For workflow_run events, get the SHA from the triggering workflow
+            COMMIT_SHA="${{ github.event.workflow_run.head_sha }}"
+            echo "Triggered by workflow_run event"
+            echo "Workflow: ${{ github.event.workflow_run.name }}"
+            echo "Conclusion: ${{ github.event.workflow_run.conclusion }}"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            # For push events, get the SHA from the push
+            COMMIT_SHA="${{ github.sha }}"
+            echo "Triggered by push event"
+          else
+            # Fallback to current SHA
+            COMMIT_SHA="${{ github.sha }}"
+            echo "Triggered by ${{ github.event_name }} event (fallback)"
+          fi
+          
+          echo "Commit SHA: $COMMIT_SHA"
+          echo "commit_sha=$COMMIT_SHA" >> $GITHUB_OUTPUT
