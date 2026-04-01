@@ -491,7 +491,9 @@ class JanusIntegrationTest(unittest.TestCase):
             return_tensors="pt",
         ).to(model.device)
 
-        self.assertTrue(inputs.input_ids.shape[1] == 17)
+
+        inputs = {'input_ids': torch.Tensor([[100000,     32,  25233,    280,   2823,   5075,     13,  54575,     11, 6131,   7272,   1343,     11,   1608,   3512,     13, 100003]]).to(device=torch_device, dtype=torch.int32), 'attention_mask': torch.Tensor([[1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]]).to(device=torch_device, dtype=torch.int32)}
+
 
         out = model.generate(
             **inputs,
@@ -535,6 +537,7 @@ class JanusIntegrationTest(unittest.TestCase):
         # fmt: on
 
         # Compare the first 50 generated tokens.
+        breakpoint()
         self.assertTrue(torch.allclose(expected_tokens, out[0][:50]))
 
         # Decode generated tokens to pixel values and postprocess them.

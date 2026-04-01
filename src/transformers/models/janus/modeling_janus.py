@@ -59,6 +59,7 @@ class JanusPreTrainedModel(PreTrainedModel):
     _can_compile_fullgraph = True
 
 
+
 @dataclass
 @auto_docstring(
     custom_intro="""
@@ -973,8 +974,6 @@ class JanusVQVAE(JanusPreTrainedModel):
         self.eval()  # Janus's VQ model is frozen
         self.decoder = JanusVQVAEDecoder(config)
         self.gradient_checkpointing = False
-
-        # Initialize the VQVAE model.
         self.post_init()
 
     def encode(self, pixel_values: torch.LongTensor):
@@ -1126,7 +1125,7 @@ class JanusModel(JanusPreTrainedModel):
         use_cache: Optional[bool] = None,
         logits_to_keep: Union[int, torch.Tensor] = 0,
         **kwargs,
-    ):
+    ) -> JanusBaseModelOutputWithPast:
         if (input_ids is None) ^ (inputs_embeds is not None):
             raise ValueError(
                 "You cannot specify both input_ids and inputs_embeds at the same time, and must specify either one"
@@ -1203,7 +1202,7 @@ class JanusForConditionalGeneration(JanusPreTrainedModel, GenerationMixin):
         use_cache: Optional[bool] = None,
         logits_to_keep: Union[int, torch.Tensor] = 0,
         **kwargs: Unpack[TransformersKwargs],
-    ):
+    ) -> JanusCausalLMOutputWithPast:
         r"""
         labels (`torch.LongTensor` of shape `(batch_size, sequence_length)`, *optional*):
             Labels for computing the masked language modeling loss. Indices should either be in `[0, ...,
@@ -1292,11 +1291,14 @@ class JanusForConditionalGeneration(JanusPreTrainedModel, GenerationMixin):
         **kwargs,
     ):
         # 1. Handle generation config and model kwargs
-        generation_config = kwargs.pop("generation_config", self.generation_config)
-        generation_config = copy.deepcopy(generation_config)
+        # Pop generation_mode first since it's specific to Janus
+        generation_mode = kwargs.pop("generation_mode", "text")
+        generation_config, model_kwargs = self._prepare_generation_config(
+            kwargs.pop("generation_config", None), **kwargs
+        )
+        generation_config.generation_kwargs = self.generation_config.generation_kwargs
 
         # Default to "text" generation if mode isn't provided
-        generation_mode = kwargs.pop("generation_mode", "text")
         if generation_mode == "text":
             # Set guidance_scale=None to prevent running UnbatchedCFG processor.
             return super().generate(
@@ -1307,7 +1309,6 @@ class JanusForConditionalGeneration(JanusPreTrainedModel, GenerationMixin):
                 **kwargs,
             )
 
-        model_kwargs = generation_config.update(**kwargs)  # All unused kwargs must be model kwargs
 
         # Validate generation mode
         if generation_config.get_generation_mode() not in (GenerationMode.SAMPLE, GenerationMode.GREEDY_SEARCH):
